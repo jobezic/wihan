@@ -42,6 +42,8 @@
 #define __TRAFFIC_IN_ADD 140
 #define __TRAFFIC_OUT_ADD 150
 #define __CHECK_AUTH 160
+#define __READ_TRAFFIC_IN 170
+#define __READ_TRAFFIC_OUT 180
 
 /* Define the host proto */
 typedef struct {
@@ -96,8 +98,8 @@ void write_hosts_list(host_t *hosts, int len) {
 
     status_file = fopen("/tmp/wihand.status", "w+");
 
-    fprintf(status_file, "MAC\t\t\tStatus\t\tStart\t\t\tStop\n");
-    fprintf(status_file, "-----------------------------------------------------------------------------\n");
+    fprintf(status_file, "MAC\t\t\tStatus\t\tStart\t\t\tStop\t\t\tTraffic In\tTraffic Out\n");
+    fprintf(status_file, "--------------------------------------------------------------------------------------------------------------------\n");
 
     for (i = 0; i < len; i++) {
         strcpy(tbuff, "");
@@ -113,7 +115,17 @@ void write_hosts_list(host_t *hosts, int len) {
             strftime (ebuff, sizeof(ebuff), "%Y-%m-%d %H:%M:%S", sTm);
         }
 
-        fprintf(status_file, "%s\t%c\t%s\t%s\n", hosts[i].mac, hosts[i].status, tbuff, ebuff);
+        if (hosts[i].traffic_in == 0 && hosts[i].traffic_out == 0) {
+            fprintf(status_file, "%s\t%c\t%s\t%s\n", hosts[i].mac, hosts[i].status, tbuff, ebuff);
+        } else {
+            fprintf(status_file, "%s\t%c\t%s\t\t\t%s\t\t\t%lu\t%lu\n",
+                    hosts[i].mac,
+                    hosts[i].status,
+                    tbuff,
+                    ebuff,
+                    hosts[i].traffic_in,
+                    hosts[i].traffic_out);
+        }
     }
 
     fclose(status_file);
@@ -211,10 +223,12 @@ int print_status()
 
 }
 
-int iptables_man(int action, char* mac) {
+int iptables_man(int action, char* mac, char* data) {
     char cmd[255];
     char log_cmd[255];
+    char pres[64] = "";
     int retcode;
+    FILE *fp;
 
     switch(action) {
         case __OUTGOING_FLUSH:
@@ -275,18 +289,69 @@ int iptables_man(int action, char* mac) {
             snprintf(cmd, sizeof cmd, "iptables -t mangle -nvL wlan0_Outgoing | grep %s > /dev/null 2>&1", mac);
             retcode = system(cmd);
             break;
+        case __READ_TRAFFIC_IN:
+            snprintf(cmd, sizeof cmd, "iptables -nxvL wlan0_Traffic_In | grep %s | awk '{ print $1 }' 2> /dev/null", mac);
+            fp = popen(cmd, "r");
+
+            if (fp) {
+                fgets(pres, sizeof(pres)-1, fp);
+                retcode = pclose(fp);
+                strcpy(data, pres);
+            } else {
+                snprintf(log_cmd, sizeof log_cmd, "Read traffic fails for %s", mac);
+
+                if (log_stream) {
+                    writelog(log_stream, log_cmd);
+                }
+            }
+
+            break;
+        case __READ_TRAFFIC_OUT:
+            snprintf(cmd, sizeof cmd, "iptables -nxvL wlan0_Traffic_Out | grep %s | awk '{ print $1 }' 2> /dev/null", mac);
+            fp = popen(cmd, "r");
+
+            if (fp) {
+                fgets(pres, sizeof(pres)-1, fp);
+                retcode = pclose(fp);
+                strcpy(data, pres);
+            } else {
+                snprintf(log_cmd, sizeof log_cmd, "Read traffic fails for %s", mac);
+
+                if (log_stream) {
+                    writelog(log_stream, log_cmd);
+                }
+            }
+
+            break;
+
     }
 
     return retcode;
+}
+
+unsigned long read_traffic_data(char *mac, const int inout) {
+    unsigned long res = 0;
+    int ret;
+    char bytes[64];
+
+    ret = iptables_man(inout, mac, bytes);
+
+    if (ret == 0) {
+        if (strcmp(bytes, "") != 0) {
+            res = atol(bytes);
+        }
+    }
+
+    return res;
 }
 
 int authorize_host(char *mac)
 {
     int ret, ret_tia, ret_toa;
 
-    ret = iptables_man(__OUTGOING_ADD, mac);
-    ret_tia = iptables_man(__TRAFFIC_IN_ADD, mac);
-    ret_toa = iptables_man(__TRAFFIC_OUT_ADD, mac);
+    ret = iptables_man(__OUTGOING_ADD, mac, NULL);
+    ret_tia = iptables_man(__TRAFFIC_IN_ADD, mac, NULL);
+    ret_toa = iptables_man(__TRAFFIC_OUT_ADD, mac, NULL);
 
     if (ret == 0 && ret_tia == 0 && ret_toa == 0)
         return EXIT_SUCCESS;
@@ -298,7 +363,7 @@ int check_authorized_host(char *mac)
 {
     int ret;
 
-    ret = iptables_man(__CHECK_AUTH, mac);
+    ret = iptables_man(__CHECK_AUTH, mac, NULL);
 
     return ret;
 }
@@ -513,6 +578,7 @@ int main(int argc, char *argv[])
     int arp_len, i, retcode;
     char logstr[255];
     char radcmd[255];
+    int traffic_in, traffic_out;
 
     /* Try to process all command line arguments */
     while ((value = getopt_long(argc, argv, "c:l:t:p:a:fsh", long_options, &option_index)) != -1) {
@@ -580,9 +646,9 @@ int main(int argc, char *argv[])
     /* This global variable can be changed in function handling signal */
     running = 1;
 
-    iptables_man(__OUTGOING_FLUSH, NULL);
-    iptables_man(__TRAFFIC_IN_FLUSH, NULL);
-    iptables_man(__TRAFFIC_OUT_FLUSH, NULL);
+    iptables_man(__OUTGOING_FLUSH, NULL, NULL);
+    iptables_man(__TRAFFIC_IN_FLUSH, NULL, NULL);
+    iptables_man(__TRAFFIC_OUT_FLUSH, NULL, NULL);
 
     /* Read arp list */
     hosts_len = read_arp(hosts);
@@ -612,9 +678,9 @@ int main(int argc, char *argv[])
 
                 /* set host status on radius response outcome */
                 if (retcode == 0
-                        && iptables_man(__OUTGOING_ADD, hosts[i].mac)
-                        && iptables_man(__TRAFFIC_IN_ADD, hosts[i].mac)
-                        && iptables_man(__TRAFFIC_OUT_ADD, hosts[i].mac))
+                        && iptables_man(__OUTGOING_ADD, hosts[i].mac, NULL)
+                        && iptables_man(__TRAFFIC_IN_ADD, hosts[i].mac, NULL)
+                        && iptables_man(__TRAFFIC_OUT_ADD, hosts[i].mac, NULL))
                 {
                     hosts[i].status = 'A';
                     hosts[i].start_time = time(0);
@@ -634,7 +700,21 @@ int main(int argc, char *argv[])
             if (retcode > 0 && hosts[i].status != 'D') {
                 hosts[i].status = 'D';
             }
+
+            /* set traffic data */
+            traffic_in = read_traffic_data(hosts[i].mac, __READ_TRAFFIC_IN);
+
+            if (traffic_in > 0) {
+                hosts[i].traffic_in = traffic_in;
+            }
+
+            traffic_out = read_traffic_data(hosts[i].mac, __READ_TRAFFIC_OUT);
+
+            if (traffic_out > 0) {
+                hosts[i].traffic_out = traffic_out;
+            }
         }
+
 
         write_hosts_list(hosts, hosts_len);
 
