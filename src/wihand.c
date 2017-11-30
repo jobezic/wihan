@@ -1,6 +1,7 @@
 /*
+ * Wihand - Wifi hotspot handler daemon
  *
- * Copyright (C) 2017 Geenkle Technologies.
+ * Copyright (C) 2017 Geenkle Technologies
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -15,6 +16,8 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library.  If not, see
  * <http://www.gnu.org/licenses/>.
+ *
+ * Author: Giovanni Bezicheri <jobezic@gmail.com>
  */
 
 #include <stdio.h>
