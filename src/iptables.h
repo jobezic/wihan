@@ -1,4 +1,4 @@
 
 /* iptables.h */
 
-int remove_rule_from_chain(char * chain, char* str);
+int remove_rule_from_chain(const char *, const char *, const char *);

@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int remove_rule_from_chain(char * chain, char* str) {
+int remove_rule_from_chain(const char *table, const char * chain, const char* str) {
     char cmd[255];
     char pres[64] = "";
     int retcode = -1;
@@ -12,7 +12,8 @@ int remove_rule_from_chain(char * chain, char* str) {
 
     /* search the rule to delete */
     snprintf(cmd,
-            sizeof cmd, "iptables -t mangle -nvL %s --line-numbers | grep %s | tail -n 1 | awk '{ print $1 }'",
+            sizeof cmd, "iptables -t %s -nvL %s --line-numbers | grep %s | tail -n 1 | awk '{ print $1 }'",
+            table,
             chain,
             str);
 
@@ -24,7 +25,7 @@ int remove_rule_from_chain(char * chain, char* str) {
 
         if (retcode == 0) {
             /* rule found, delete it */
-            snprintf(cmd, sizeof cmd, "iptables -t mangle -D %s %s", chain, pres);
+            snprintf(cmd, sizeof cmd, "iptables -t %s -D %s %s", table, chain, pres);
             retcode = system(cmd);
         }
     }

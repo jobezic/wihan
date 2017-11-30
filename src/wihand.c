@@ -30,10 +30,12 @@
 #include <errno.h>
 #include <time.h>
 #include <string.h>
+#include "iptables.h"
 
 
 #define __MAIN_INTERVAL 1
 #define __ACCT_INTERVAL 300
+#define __IDLE_TIMEOUT 60
 
 #define __OUTGOING_FLUSH 100
 #define __TRAFFIC_IN_FLUSH 110
@@ -44,6 +46,7 @@
 #define __CHECK_AUTH 160
 #define __READ_TRAFFIC_IN 170
 #define __READ_TRAFFIC_OUT 180
+#define __REMOVE_HOST 190
 
 /* Define the host proto */
 typedef struct {
@@ -55,6 +58,7 @@ typedef struct {
     int session_time;
     unsigned long traffic_in;
     unsigned long traffic_out;
+    int idle;
 } host_t;
 
 static int running = 0;
@@ -98,8 +102,8 @@ void write_hosts_list(host_t *hosts, int len) {
 
     status_file = fopen("/tmp/wihand.status", "w+");
 
-    fprintf(status_file, "MAC\t\t\tStatus\t\tStart\t\t\tStop\t\t\tTraffic In\tTraffic Out\n");
-    fprintf(status_file, "--------------------------------------------------------------------------------------------------------------------\n");
+    fprintf(status_file, "MAC\t\t\tStatus\tIdle\t\tStart\t\t\tStop\t\t\tTraffic In\tTraffic Out\n");
+    fprintf(status_file, "----------------------------------------------------------------------------------------------------------------------------\n");
 
     for (i = 0; i < len; i++) {
         strcpy(tbuff, "");
@@ -116,11 +120,12 @@ void write_hosts_list(host_t *hosts, int len) {
         }
 
         if (hosts[i].traffic_in == 0 && hosts[i].traffic_out == 0) {
-            fprintf(status_file, "%s\t%c\t%s\t%s\n", hosts[i].mac, hosts[i].status, tbuff, ebuff);
+            fprintf(status_file, "%s\t%c\t%d\t%s\t%s\n", hosts[i].mac, hosts[i].status, hosts[i].idle, tbuff, ebuff);
         } else {
-            fprintf(status_file, "%s\t%c\t%s\t\t\t%s\t\t\t%lu\t%lu\n",
+            fprintf(status_file, "%s\t%c\t%d\t%s\t\t\t%s\t\t\t%lu\t%lu\n",
                     hosts[i].mac,
                     hosts[i].status,
+                    hosts[i].idle,
                     tbuff,
                     ebuff,
                     hosts[i].traffic_in,
@@ -223,7 +228,7 @@ int print_status()
 
 }
 
-int iptables_man(int action, char* mac, char* data) {
+int iptables_man(const int action, char* mac, char* data) {
     char cmd[255];
     char log_cmd[255];
     char pres[64] = "";
@@ -290,7 +295,7 @@ int iptables_man(int action, char* mac, char* data) {
             retcode = system(cmd);
             break;
         case __READ_TRAFFIC_IN:
-            snprintf(cmd, sizeof cmd, "iptables -nxvL wlan0_Traffic_In | grep %s | awk '{ print $1 }' 2> /dev/null", mac);
+            snprintf(cmd, sizeof cmd, "iptables -nxvL wlan0_Traffic_In | grep %s | awk '{ print $2 }' 2> /dev/null", mac);
             fp = popen(cmd, "r");
 
             if (fp) {
@@ -307,7 +312,7 @@ int iptables_man(int action, char* mac, char* data) {
 
             break;
         case __READ_TRAFFIC_OUT:
-            snprintf(cmd, sizeof cmd, "iptables -nxvL wlan0_Traffic_Out | grep %s | awk '{ print $1 }' 2> /dev/null", mac);
+            snprintf(cmd, sizeof cmd, "iptables -nxvL wlan0_Traffic_Out | grep %s | awk '{ print $2 }' 2> /dev/null", mac);
             fp = popen(cmd, "r");
 
             if (fp) {
@@ -323,7 +328,11 @@ int iptables_man(int action, char* mac, char* data) {
             }
 
             break;
-
+        case __REMOVE_HOST:
+            retcode = remove_rule_from_chain("mangle", "wlan0_Outgoing", mac)
+                    || remove_rule_from_chain("filter", "wlan0_Traffic_In", mac)
+                    || remove_rule_from_chain("filter", "wlan0_Traffic_Out", mac);
+            break;
     }
 
     return retcode;
@@ -556,6 +565,26 @@ int update_hosts(host_t *hosts, int hosts_len, host_t *arp_cache, int arp_cache_
     return new_hosts_len;
 }
 
+int dnat_host(host_t *host) {
+    char log_cmd[255];
+    int ret;
+
+    ret = iptables_man(__REMOVE_HOST, host->mac, NULL);
+
+    if (ret == 0) {
+        host->status = 'D';
+        host->stop_time = time(0);
+
+        snprintf(log_cmd, sizeof log_cmd, "Disconnect %s for idle timeout", host->mac);
+        writelog(log_stream, log_cmd);
+    } else {
+        snprintf(log_cmd, sizeof log_cmd, "DNAT host fails for %s", host->mac);
+        writelog(log_stream, log_cmd);
+    }
+
+    return ret;
+}
+
 /* Main function */
 int main(int argc, char *argv[])
 {
@@ -684,6 +713,7 @@ int main(int argc, char *argv[])
                 {
                     hosts[i].status = 'A';
                     hosts[i].start_time = time(0);
+                    hosts[i].idle = 0;
                 } else {
                     hosts[i].status = 'D';
                 }
@@ -695,6 +725,7 @@ int main(int argc, char *argv[])
             if (retcode == 0 && hosts[i].status != 'A') {
                 hosts[i].status = 'A';
                 hosts[i].start_time = time(0);
+                hosts[i].idle = 0;
             }
 
             if (retcode > 0 && hosts[i].status != 'D') {
@@ -705,17 +736,39 @@ int main(int argc, char *argv[])
             traffic_in = read_traffic_data(hosts[i].mac, __READ_TRAFFIC_IN);
 
             if (traffic_in > 0) {
+                /* reset idle if traffic */
+                if (hosts[i].traffic_in != traffic_in) {
+                    hosts[i].idle = 0;
+                }
+
+                /* update traffic data */
                 hosts[i].traffic_in = traffic_in;
             }
 
             traffic_out = read_traffic_data(hosts[i].mac, __READ_TRAFFIC_OUT);
 
             if (traffic_out > 0) {
+                /* reset idle if traffic */
+                if (hosts[i].traffic_out != traffic_out) {
+                    hosts[i].idle = 0;
+                }
+
+                /* update traffic data */
                 hosts[i].traffic_out = traffic_out;
+            }
+
+            /* inc idle timeout if hosts is allowed */
+            if (hosts[i].status == 'A') {
+                hosts[i].idle++;
+            }
+
+            /* Check for idle timeout */
+            if (hosts[i].status == 'A' && hosts[i].idle > __IDLE_TIMEOUT) {
+                dnat_host(&hosts[i]);
             }
         }
 
-
+        /* Write hosts list */
         write_hosts_list(hosts, hosts_len);
 
         /* Radius accounting */
