@@ -31,6 +31,7 @@
 #include <time.h>
 #include <string.h>
 #include "iptables.h"
+#include "utils.h"
 
 
 #define __MAIN_INTERVAL 1
@@ -441,14 +442,6 @@ void print_help(void)
     printf("\n");
 }
 
-void uppercase ( char *sPtr )
-{
-    while ( *sPtr != '\0' ) {
-        *sPtr = toupper ( ( unsigned char ) *sPtr );
-        ++sPtr;
-    }
-}
-
 int read_arp(host_t * hosts) {
     FILE *file = fopen("/proc/net/arp", "r");
     char ip[16], mac[18];
@@ -515,7 +508,7 @@ int dnat_host(host_t *host) {
         host->status = 'D';
         host->stop_time = time(0);
 
-        snprintf(log_cmd, sizeof log_cmd, "Disconnect %s for idle timeout", host->mac);
+        snprintf(log_cmd, sizeof log_cmd, "DNAT %s for idle timeout", host->mac);
         writelog(log_stream, log_cmd);
     } else {
         snprintf(log_cmd, sizeof log_cmd, "DNAT host fails for %s", host->mac);
