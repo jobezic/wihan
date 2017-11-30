@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 int flush_chain(const char *table, const char *chain) {
     char cmd[255];

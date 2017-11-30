@@ -499,20 +499,15 @@ int update_hosts(host_t *hosts, int hosts_len, host_t *arp_cache, int arp_cache_
 }
 
 int dnat_host(host_t *host) {
-    char log_cmd[255];
     int ret;
 
+    /* remove host from chains */
     ret = iptables_man(__REMOVE_HOST, host->mac, NULL);
 
+    /* update host status */
     if (ret == 0) {
         host->status = 'D';
         host->stop_time = time(0);
-
-        snprintf(log_cmd, sizeof log_cmd, "DNAT %s for idle timeout", host->mac);
-        writelog(log_stream, log_cmd);
-    } else {
-        snprintf(log_cmd, sizeof log_cmd, "DNAT host fails for %s", host->mac);
-        writelog(log_stream, log_cmd);
     }
 
     return ret;
@@ -540,7 +535,7 @@ int main(int argc, char *argv[])
     int arp_len, i, retcode;
     char logstr[255];
     char radcmd[255];
-    int traffic_in, traffic_out;
+    unsigned long traffic_in, traffic_out;
 
     /* Try to process all command line arguments */
     while ((value = getopt_long(argc, argv, "c:l:t:p:a:fsh", long_options, &option_index)) != -1) {
@@ -708,7 +703,12 @@ int main(int argc, char *argv[])
 
             /* Check for idle timeout */
             if (hosts[i].status == 'A' && hosts[i].idle > __IDLE_TIMEOUT) {
-                dnat_host(&hosts[i]);
+                if (dnat_host(&hosts[i]) == 0) {
+                    snprintf(logstr, sizeof logstr, "DNAT %s for idle timeout", hosts[i].mac);
+                } else {
+                    snprintf(logstr, sizeof logstr, "Fail to DNAT %s for idle timeout", hosts[i].mac);
+                }
+                writelog(log_stream, logstr);
             }
         }
 
