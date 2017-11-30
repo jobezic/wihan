@@ -102,8 +102,8 @@ void write_hosts_list(host_t *hosts, int len) {
 
     status_file = fopen("/tmp/wihand.status", "w+");
 
-    fprintf(status_file, "MAC\t\t\tStatus\tIdle\t\tStart\t\t\tStop\t\t\tTraffic In\tTraffic Out\n");
-    fprintf(status_file, "----------------------------------------------------------------------------------------------------------------------------\n");
+    fprintf(status_file, "MAC\t\t\tStatus\tIdle\t\tStart\t\t\tStop\t\tTraffic In\tTraffic Out\n");
+    fprintf(status_file, "------------------------------------------------------------------------------------------------------------------------\n");
 
     for (i = 0; i < len; i++) {
         strcpy(tbuff, "");
@@ -122,7 +122,7 @@ void write_hosts_list(host_t *hosts, int len) {
         if (hosts[i].traffic_in == 0 && hosts[i].traffic_out == 0) {
             fprintf(status_file, "%s\t%c\t%d\t%s\t%s\n", hosts[i].mac, hosts[i].status, hosts[i].idle, tbuff, ebuff);
         } else {
-            fprintf(status_file, "%s\t%c\t%d\t%s\t\t\t%s\t\t\t%lu\t%lu\n",
+            fprintf(status_file, "%s\t%c\t%d\t%s\t\t\t%s\t\t%lu\t%lu\n",
                     hosts[i].mac,
                     hosts[i].status,
                     hosts[i].idle,
@@ -229,103 +229,43 @@ int print_status()
 }
 
 int iptables_man(const int action, char* mac, char* data) {
-    char cmd[255];
-    char log_cmd[255];
-    char pres[64] = "";
     int retcode;
-    FILE *fp;
 
     switch(action) {
         case __OUTGOING_FLUSH:
-            retcode = system("iptables -t mangle -F wlan0_Outgoing");
-
-            if (log_stream) {
-                writelog(log_stream, "Flushing wlan0_Outgoing chain");
-            }
+            retcode = flush_chain("mangle", "wlan0_Outgoing");
 
             break;
         case __TRAFFIC_IN_FLUSH:
-            retcode = system("iptables -F wlan0_Traffic_In");
-
-            if (log_stream) {
-                writelog(log_stream, "Flushing wlan0_Traffic_In chain");
-            }
+            retcode = flush_chain("filter", "wlan0_Traffic_In");
 
             break;
         case __TRAFFIC_OUT_FLUSH:
-            retcode = system("iptables -F wlan0_Traffic_Out");
-
-            if (log_stream) {
-                writelog(log_stream, "Flushing wlan0_Traffic_Out chain");
-            }
+            retcode = flush_chain("filter", "wlan0_Traffic_Out");
 
             break;
         case __OUTGOING_ADD:
-            snprintf(cmd, sizeof cmd, "iptables -t mangle -A wlan0_Outgoing -m mac --mac-source \"%s\" -j MARK --set-mark 2", mac);
-            retcode = system(cmd);
-            snprintf(log_cmd, sizeof log_cmd, "Adding mac %s to wlan0_Outgoing chain", mac);
-
-            if (log_stream) {
-                writelog(log_stream, log_cmd);
-            }
+            retcode = add_mac_rule_to_chain("mangle", "wlan0_Outgoing", mac, "MARK --set-mark 2");
 
             break;
         case __TRAFFIC_IN_ADD:
-            snprintf(cmd, sizeof cmd, "iptables -A wlan0_Traffic_In -m mac --mac-source \"%s\" -j ACCEPT", mac);
-            retcode = system(cmd);
-            snprintf(log_cmd, sizeof log_cmd, "Adding mac %s to wlan0_Traffic_In", mac);
-
-            if (log_stream) {
-                writelog(log_stream, log_cmd);
-            }
+            retcode = add_mac_rule_to_chain("filter", "wlan0_Traffic_In", mac, "ACCEPT");
 
             break;
         case __TRAFFIC_OUT_ADD:
-            snprintf(cmd, sizeof cmd, "iptables -A wlan0_Traffic_Out -m mac --mac-source \"%s\" -j ACCEPT", mac);
-            retcode = system(cmd);
-            snprintf(log_cmd, sizeof log_cmd, "Adding mac %s to wlan0_Traffic_Out", mac);
-
-            if (log_stream) {
-                writelog(log_stream, log_cmd);
-            }
+            retcode = add_mac_rule_to_chain("filter", "wlan0_Traffic_Out", mac, "ACCEPT");
 
             break;
         case __CHECK_AUTH:
-            snprintf(cmd, sizeof cmd, "iptables -t mangle -nvL wlan0_Outgoing | grep %s > /dev/null 2>&1", mac);
-            retcode = system(cmd);
+            retcode = check_chain_rule("mangle", "wlan0_Outgoing", mac);
+
             break;
         case __READ_TRAFFIC_IN:
-            snprintf(cmd, sizeof cmd, "iptables -nxvL wlan0_Traffic_In | grep %s | awk '{ print $2 }' 2> /dev/null", mac);
-            fp = popen(cmd, "r");
-
-            if (fp) {
-                fgets(pres, sizeof(pres)-1, fp);
-                retcode = pclose(fp);
-                strcpy(data, pres);
-            } else {
-                snprintf(log_cmd, sizeof log_cmd, "Read traffic fails for %s", mac);
-
-                if (log_stream) {
-                    writelog(log_stream, log_cmd);
-                }
-            }
+            retcode = read_chain_bytes("filter", "wlan0_Traffic_In", mac, data);
 
             break;
         case __READ_TRAFFIC_OUT:
-            snprintf(cmd, sizeof cmd, "iptables -nxvL wlan0_Traffic_Out | grep %s | awk '{ print $2 }' 2> /dev/null", mac);
-            fp = popen(cmd, "r");
-
-            if (fp) {
-                fgets(pres, sizeof(pres)-1, fp);
-                retcode = pclose(fp);
-                strcpy(data, pres);
-            } else {
-                snprintf(log_cmd, sizeof log_cmd, "Read traffic fails for %s", mac);
-
-                if (log_stream) {
-                    writelog(log_stream, log_cmd);
-                }
-            }
+            retcode = read_chain_bytes("filter", "wlan0_Traffic_Out", mac, data);
 
             break;
         case __REMOVE_HOST:
@@ -675,9 +615,17 @@ int main(int argc, char *argv[])
     /* This global variable can be changed in function handling signal */
     running = 1;
 
-    iptables_man(__OUTGOING_FLUSH, NULL, NULL);
-    iptables_man(__TRAFFIC_IN_FLUSH, NULL, NULL);
-    iptables_man(__TRAFFIC_OUT_FLUSH, NULL, NULL);
+    if (iptables_man(__OUTGOING_FLUSH, NULL, NULL) == 0) {
+        writelog(log_stream, "Flushing outgoing");
+    }
+
+    if (iptables_man(__TRAFFIC_IN_FLUSH, NULL, NULL) == 0) {
+        writelog(log_stream, "Flushing traffic in");
+    }
+
+    if (iptables_man(__TRAFFIC_OUT_FLUSH, NULL, NULL) == 0) {
+        writelog(log_stream, "Flushing traffic out");
+    }
 
     /* Read arp list */
     hosts_len = read_arp(hosts);
@@ -714,6 +662,9 @@ int main(int argc, char *argv[])
                     hosts[i].status = 'A';
                     hosts[i].start_time = time(0);
                     hosts[i].idle = 0;
+
+                    snprintf(logstr, sizeof logstr, "Authorize host %s", hosts[i].mac);
+                    writelog(log_stream, logstr);
                 } else {
                     hosts[i].status = 'D';
                 }
