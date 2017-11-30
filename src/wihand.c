@@ -513,6 +513,42 @@ int dnat_host(host_t *host) {
     return ret;
 }
 
+int start_host(host_t *host) {
+    int ret;
+    char cmd[255];
+    char rndtoken[20];
+    char mact[20];
+    char called_station[20];
+
+    /* set host status to authorize */
+    host->status = 'A';
+    host->start_time = time(0);
+    host->stop_time = NULL;
+    host->idle = 0;
+
+    /* generate random token */
+    gen_random(rndtoken, 16);
+    strcpy(mact, host->mac);
+    replacechar(mact, ':', '-');
+
+    /* get br0 mac address */
+    get_mac("br0", called_station);
+    uppercase(called_station);
+    replacechar(called_station, ':', '-');
+
+    /*
+     * Execute radius session start
+     *
+     * FIXME: make a fork of the main process for a better solution
+     */
+    snprintf(cmd, sizeof cmd, "echo Acct-Status-Type=\"Start\" User-Name=\"%s\" Called-Station-Id=\"%s\" Calling-Station-Id=\"%s\" Acct-Session-Id=\"%s\" | /bin/radacct", mact, called_station, mact, rndtoken);
+    writelog(log_stream, cmd);
+    ret = system(cmd);
+
+    return ret;
+}
+
+
 /* Main function */
 int main(int argc, char *argv[])
 {
@@ -536,6 +572,9 @@ int main(int argc, char *argv[])
     char logstr[255];
     char radcmd[255];
     unsigned long traffic_in, traffic_out;
+
+    /* init random seed */
+    srand(time(NULL));
 
     /* Try to process all command line arguments */
     while ((value = getopt_long(argc, argv, "c:l:t:p:a:fsh", long_options, &option_index)) != -1) {
@@ -647,12 +686,10 @@ int main(int argc, char *argv[])
                         && iptables_man(__TRAFFIC_IN_ADD, hosts[i].mac, NULL)
                         && iptables_man(__TRAFFIC_OUT_ADD, hosts[i].mac, NULL))
                 {
-                    hosts[i].status = 'A';
-                    hosts[i].start_time = time(0);
-                    hosts[i].idle = 0;
-
-                    snprintf(logstr, sizeof logstr, "Authorize host %s", hosts[i].mac);
-                    writelog(log_stream, logstr);
+                    if(start_host(&hosts[i]) == 0) {
+                        snprintf(logstr, sizeof logstr, "Authorize host %s", hosts[i].mac);
+                        writelog(log_stream, logstr);
+                    }
                 } else {
                     hosts[i].status = 'D';
                 }
@@ -662,9 +699,10 @@ int main(int argc, char *argv[])
             retcode = check_authorized_host(hosts[i].mac);
 
             if (retcode == 0 && hosts[i].status != 'A') {
-                hosts[i].status = 'A';
-                hosts[i].start_time = time(0);
-                hosts[i].idle = 0;
+                if (start_host(&hosts[i]) == 0) {
+                    snprintf(logstr, sizeof logstr, "Authorize host %s", hosts[i].mac);
+                    writelog(log_stream, logstr);
+                }
             }
 
             if (retcode > 0 && hosts[i].status != 'D') {
