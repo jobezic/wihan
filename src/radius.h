@@ -22,3 +22,4 @@
 
 int radacct_start(char *, char *, char *, char *);
 int radacct_stop(char *, time_t, unsigned long, unsigned long, char *);
+int radacct_interim_update(char *, time_t, unsigned long, unsigned long, char *);

@@ -683,7 +683,7 @@ int main(int argc, char *argv[])
                         ret = radacct_start(hosts[i].mac, hosts[i].mac, called_station, hosts[i].radius_session);
 
                         if (ret != 0) {
-                            snprintf(logstr, sizeof logstr, "Fail to execute radacct for host %s", hosts[i].mac);
+                            snprintf(logstr, sizeof logstr, "Fail to execute radacct start for host %s", hosts[i].mac);
                             writelog(log_stream, logstr);
                         }
                     }
@@ -704,7 +704,7 @@ int main(int argc, char *argv[])
                     ret = radacct_start(hosts[i].mac, hosts[i].mac, called_station, hosts[i].radius_session);
 
                     if (ret != 0) {
-                        snprintf(logstr, sizeof logstr, "Fail to execute radacct for host %s", hosts[i].mac);
+                        snprintf(logstr, sizeof logstr, "Fail to execute radacct start for host %s", hosts[i].mac);
                         writelog(log_stream, logstr);
                     }
                 }
@@ -751,13 +751,13 @@ int main(int argc, char *argv[])
 
                     /* execute radius stop acct */
                     ret = radacct_stop(hosts[i].mac,
-				    difftime(hosts[i].stop_time,hosts[i].start_time),
-				    hosts[i].traffic_in,
-				    hosts[i].traffic_out,
-				    hosts[i].radius_session);
+                    difftime(hosts[i].stop_time,hosts[i].start_time),
+                    hosts[i].traffic_in,
+                    hosts[i].traffic_out,
+                    hosts[i].radius_session);
 
                     if (ret != 0) {
-                        snprintf(logstr, sizeof logstr, "Fail to execute radacct for host %s", hosts[i].mac);
+                        snprintf(logstr, sizeof logstr, "Fail to execute radacct stop for host %s", hosts[i].mac);
                         writelog(log_stream, logstr);
                     }
                 } else {
@@ -776,10 +776,23 @@ int main(int argc, char *argv[])
 
             /* cycle for each host */
             for (i = 0; i < hosts_len; i++) {
-                /* retrieve host's info */
-            }
+                if (hosts[i].status == 'A') {
+                    /* execute radius interim acct */
+                    ret = radacct_interim_update(hosts[i].mac,
+                    difftime(time(0), hosts[i].start_time),
+                    hosts[i].traffic_in,
+                    hosts[i].traffic_out,
+                    hosts[i].radius_session);
 
+                    if (ret != 0) {
+                        snprintf(logstr, sizeof logstr, "Fail to execute radacct interim update for host %s", hosts[i].mac);
+                        writelog(log_stream, logstr);
+                   }
+               }
+
+            }
         }
+
         loopcount++;
 
         /* Real server should use select() or poll() for waiting at

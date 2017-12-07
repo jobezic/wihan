@@ -69,3 +69,23 @@ int radacct_stop(char *username, time_t session_time, unsigned long octets_in, u
 
     return ret;
 }
+
+int radacct_interim_update(char *username, time_t session_time, unsigned long octets_in, unsigned long octets_out, char *session) {
+    int ret;
+    char cmd[255];
+    char mac[20];
+
+    /* convert username in mac format */
+    strcpy(mac, username);
+    replacechar(mac, ':', '-');
+
+    /*
+     * Execute radius session stop
+     *
+     * FIXME: make a fork of the main process for a better solution
+     */
+    snprintf(cmd, sizeof cmd, "echo Acct-Status-Type=3 User-Name=\"%s\" Acct-Session-Time=%d Acct-Input-Octets=%lu Acct-Output-Octets=%lu Acct-Session-Id=\"%s\" | /bin/radacct", mac, session_time, octets_in, octets_out, session);
+    ret = system(cmd);
+
+    return ret;
+}
