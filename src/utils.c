@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
+#include <stdlib.h>
 
 void uppercase ( char *sPtr )
 {
