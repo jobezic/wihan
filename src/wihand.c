@@ -60,10 +60,10 @@ typedef struct {
     char status;
     time_t start_time;
     time_t stop_time;
-    int session_time;
     unsigned long traffic_in;
     unsigned long traffic_out;
     int idle;
+    char radius_session[20];
 } host_t;
 
 static int running = 0;
@@ -107,12 +107,12 @@ void write_hosts_list(host_t *hosts, int len) {
 
     status_file = fopen("/tmp/wihand.status", "w+");
 
-    fprintf(status_file, "MAC\t\t\tStatus\tIdle\t\tStart\t\t\tStop\t\tTraffic In\tTraffic Out\n");
-    fprintf(status_file, "------------------------------------------------------------------------------------------------------------------------\n");
+    fprintf(status_file, "MAC\t\t\tStatus\tIdle\tSession Start\t\tSession Stop\t\tTraffic In\tTraffic Out\tSession\n");
+    fprintf(status_file, "----------------------------------------------------------------------------------------------------------------------------------------\n");
 
     for (i = 0; i < len; i++) {
-        strcpy(tbuff, "");
-        strcpy(ebuff, "");
+        strcpy(tbuff, "                   ");
+        strcpy(ebuff, "                   ");
 
         if (hosts[i].start_time) {
             sTm = gmtime (&hosts[i].start_time);
@@ -127,14 +127,15 @@ void write_hosts_list(host_t *hosts, int len) {
         if (hosts[i].traffic_in == 0 && hosts[i].traffic_out == 0) {
             fprintf(status_file, "%s\t%c\t%d\t%s\t%s\n", hosts[i].mac, hosts[i].status, hosts[i].idle, tbuff, ebuff);
         } else {
-            fprintf(status_file, "%s\t%c\t%d\t%s\t\t\t%s\t\t%lu\t%lu\n",
+            fprintf(status_file, "%s\t%c\t%d\t%s\t%s\t\t%lu\t\t%lu\t%s\n",
                     hosts[i].mac,
                     hosts[i].status,
                     hosts[i].idle,
                     tbuff,
                     ebuff,
                     hosts[i].traffic_in,
-                    hosts[i].traffic_out);
+                    hosts[i].traffic_out,
+                    hosts[i].radius_session);
         }
     }
 
@@ -518,36 +519,13 @@ int dnat_host(host_t *host) {
 }
 
 int start_host(host_t *host) {
-    int ret;
-    char cmd[255];
-    char rndtoken[20];
-    char mact[20];
-    char called_station[20];
+    int ret = 0;
 
     /* set host status to authorize */
     host->status = 'A';
     host->start_time = time(0);
     host->stop_time = NULL;
     host->idle = 0;
-
-    /* generate random token */
-    gen_random(rndtoken, 16);
-    strcpy(mact, host->mac);
-    replacechar(mact, ':', '-');
-
-    /* get br0 mac address */
-    get_mac("br0", called_station);
-    uppercase(called_station);
-    replacechar(called_station, ':', '-');
-
-    /*
-     * Execute radius session start
-     *
-     * FIXME: make a fork of the main process for a better solution
-     */
-    snprintf(cmd, sizeof cmd, "echo Acct-Status-Type=\"Start\" User-Name=\"%s\" Called-Station-Id=\"%s\" Calling-Station-Id=\"%s\" Acct-Session-Id=\"%s\" | /bin/radacct", mact, called_station, mact, rndtoken);
-    writelog(log_stream, cmd);
-    ret = system(cmd);
 
     return ret;
 }
@@ -571,8 +549,9 @@ int main(int argc, char *argv[])
     char *log_file_name = NULL;
     int start_daemonized = 1;
 
+    char called_station[20];
     host_t arp_cache[1024]; /* FIXME: allocate dynamically */
-    int arp_len, i, retcode;
+    int arp_len, i, retcode, ret;
     char logstr[255];
     char radcmd[255];
     unsigned long traffic_in, traffic_out;
@@ -646,6 +625,12 @@ int main(int argc, char *argv[])
     /* This global variable can be changed in function handling signal */
     running = 1;
 
+    /* get br0 mac address for radius calling station */
+    get_mac("br0", called_station);
+    uppercase(called_station);
+    replacechar(called_station, ':', '-');
+
+    /* flush chains */
     if (iptables_man(__OUTGOING_FLUSH, NULL, NULL) == 0) {
         writelog(log_stream, "Flushing outgoing");
     }
@@ -693,6 +678,14 @@ int main(int argc, char *argv[])
                     if(start_host(&hosts[i]) == 0) {
                         snprintf(logstr, sizeof logstr, "Authorize host %s", hosts[i].mac);
                         writelog(log_stream, logstr);
+
+                        /* execute radius start acct */
+                        ret = radacct_start(hosts[i].mac, hosts[i].mac, called_station, hosts[i].radius_session);
+
+                        if (ret != 0) {
+                            snprintf(logstr, sizeof logstr, "Fail to execute radacct for host %s", hosts[i].mac);
+                            writelog(log_stream, logstr);
+                        }
                     }
                 } else {
                     hosts[i].status = 'D';
@@ -706,6 +699,14 @@ int main(int argc, char *argv[])
                 if (start_host(&hosts[i]) == 0) {
                     snprintf(logstr, sizeof logstr, "Authorize host %s", hosts[i].mac);
                     writelog(log_stream, logstr);
+
+                    /* execute radius start acct */
+                    ret = radacct_start(hosts[i].mac, hosts[i].mac, called_station, hosts[i].radius_session);
+
+                    if (ret != 0) {
+                        snprintf(logstr, sizeof logstr, "Fail to execute radacct for host %s", hosts[i].mac);
+                        writelog(log_stream, logstr);
+                    }
                 }
             }
 
@@ -747,6 +748,18 @@ int main(int argc, char *argv[])
             if (hosts[i].status == 'A' && hosts[i].idle > __IDLE_TIMEOUT) {
                 if (dnat_host(&hosts[i]) == 0) {
                     snprintf(logstr, sizeof logstr, "DNAT %s for idle timeout", hosts[i].mac);
+
+                    /* execute radius stop acct */
+                    ret = radacct_stop(hosts[i].mac,
+				    difftime(hosts[i].stop_time,hosts[i].start_time),
+				    hosts[i].traffic_in,
+				    hosts[i].traffic_out,
+				    hosts[i].radius_session);
+
+                    if (ret != 0) {
+                        snprintf(logstr, sizeof logstr, "Fail to execute radacct for host %s", hosts[i].mac);
+                        writelog(log_stream, logstr);
+                    }
                 } else {
                     snprintf(logstr, sizeof logstr, "Fail to DNAT %s for idle timeout", hosts[i].mac);
                 }
