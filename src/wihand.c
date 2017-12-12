@@ -70,6 +70,7 @@ static int running = 0;
 static int delay = 1;
 static char *conf_file_name = NULL;
 static char *pid_file_name = NULL;
+static char *interface = NULL;
 static int pid_fd = -1;
 static char *app_name = "wihand";
 static FILE *log_stream = NULL;
@@ -441,7 +442,8 @@ void print_help(void)
 /*    printf("   -t --test_conf filename   Test configuration file\n"); */
     printf("   -l --log_file  filename   Write logs to the file\n");
     printf("   -f --foreground           Run in foreground\n");
-    printf("   -p --pid_file  filename   PID file used by daemonized app\n");
+    printf("   -p --pid_file  filename   PID file used by the daemon\n");
+    printf("   -i --interface  interface Interface used by the daemon\n");
     printf("   -s --status               Print status\n");
     printf("   -a --authorize mac        Authorize host\n");
     printf("\n");
@@ -542,6 +544,7 @@ int main(int argc, char *argv[])
         {"help", no_argument, 0, 'h'},
         {"foreground", no_argument, 0, 'f'},
         {"pid_file", required_argument, 0, 'p'},
+        {"interface", required_argument, 1, 'i'},
         {"authorize", required_argument, 0, 'a'},
         {NULL, 0, 0, 0}
     };
@@ -560,7 +563,7 @@ int main(int argc, char *argv[])
     srand(time(NULL));
 
     /* Try to process all command line arguments */
-    while ((value = getopt_long(argc, argv, "c:l:t:p:a:fsh", long_options, &option_index)) != -1) {
+    while ((value = getopt_long(argc, argv, "c:l:t:p:a:i:fsh", long_options, &option_index)) != -1) {
         switch (value) {
             case 'c':
                 conf_file_name = strdup(optarg);
@@ -570,6 +573,9 @@ int main(int argc, char *argv[])
                 break;
             case 'p':
                 pid_file_name = strdup(optarg);
+                break;
+            case 'i':
+                interface = strdup(optarg);
                 break;
             case 't':
                 return test_conf_file(optarg);
@@ -625,8 +631,10 @@ int main(int argc, char *argv[])
     /* This global variable can be changed in function handling signal */
     running = 1;
 
-    /* get br0 mac address for radius calling station */
-    get_mac("br0", called_station);
+    /* get <interface> mac address for radius calling station */
+    snprintf(logstr, sizeof logstr, "Using interface %s", interface);
+    writelog(log_stream, logstr);
+    get_mac(interface, called_station);
     uppercase(called_station);
     replacechar(called_station, ':', '-');
 
