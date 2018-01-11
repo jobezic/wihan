@@ -17,7 +17,7 @@
  * License along with this library.  If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Author: Giovanni Bezicheri <jobezic@gmail.com>
+ * Author: Giovanni Bezicheri <giovanni@geenkle.com>
  */
 
 #include <stdio.h>
