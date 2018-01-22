@@ -99,6 +99,10 @@ If you want to add a mac address of a host to the allowed hosts, just type:
 ```
 and the hosts will be allowed to pass without any redirection to the captive portal.
 
+## Contributing
+
+Contributors are welcome! Join this nice project!
+
 ## License
 
 This project is licensed under the terms of the GNU Lesser General Public License version 2.1.
