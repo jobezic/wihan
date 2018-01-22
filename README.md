@@ -74,6 +74,31 @@ iptables -t filter -I INPUT 1 -j wlan0_Traffic_In
 iptables -t filter -I FORWARD 1 -j wlan0_Traffic_Out
 ```
 
+## Usage
+
+Start wihan with:
+
+```wihand -l <logfile> -i <listening interface>```
+
+e.g.
+
+```
+wihand -l /tmp/wihand.log -i br0
+```
+
+It goes in background listening for new connections to the br0 interface.
+
+The following command return the host status with all related informations in a tabular fashion:
+```
+wihand -s
+```
+
+If you want to add a mac address of a host to the allowed hosts, just type:
+```
+/bin/wihand -a <mac>
+```
+and the hosts will be allowed to pass without any redirection to the captive portal.
+
 ## License
 
 This project is licensed under the terms of the GNU Lesser General Public License version 2.1.
