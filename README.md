@@ -82,6 +82,15 @@ setrules.sh <listening interface> <listening ip> <wan interface> <allowed domain
 
 ## Usage
 
+In order to redirect your clients to your captive portal you have to setup the hotspot.cgi script and start wihan_redirect.
+To setup your hotspot.cgi script read it and make your changes as described inside the cgi script.
+
+Start wihan_redirect with:
+
+```
+wihan_redirect
+```
+
 Start wihan with:
 
 ```wihand -l <logfile> -i <listening interface>```
