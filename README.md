@@ -3,6 +3,11 @@
 Wihan is a daemon to provide WiFi access and control and hotspot capabilities. It is designed specifically for embedded devices (like routers running OpenWrt).
 Actually this project is a sort of a framework that should be customized in order to work. The wihand daemon is the mean part of this framework and it is fully functional. Some other minor parts need to be customized.
 
+This project is composed by:
+
+* wihand that is the daemon that handle clients authorization and accounting through radius,
+* wihan_redirect that is a little web server based on Mongoose (https://github.com/cesanta/mongoose) that works in collaboration with the hotspot.cgi script to redirect your clients to the captive portal.
+
 ## Getting Started
 
 Clone the project on your system:
@@ -130,6 +135,13 @@ and the hosts will be allowed to pass without any redirection to the captive por
 ## Contributing
 
 Contributors are welcome! Join this nice project!
+
+Some steps to go forward:
+- wihan_redirect boot script,
+- import all radius code inside the wihand daemon (to get rid of the radiusclient dependency),
+- some automatization, testing (Travis) and deployment,
+- a docker example and image,
+- any contributes.
 
 ## License
 
