@@ -1,6 +1,7 @@
 # Wihan
 
 Wihan is a daemon to provide WiFi access and control and hotspot capabilities. It is designed specifically for embedded devices (like routers running OpenWrt).
+Actually this project is a sort of a framework that should be customized in order to work. The wihand daemon is the mean part of this framework and it is fully functional. Some other minor parts need to be customized.
 
 ## Getting Started
 
@@ -79,6 +80,15 @@ To make this task easier you can use the setrules.sh script in utils.
 ```
 setrules.sh <listening interface> <listening ip> <wan interface> <allowed domain>
 ```
+
+### Radiusclient
+
+Compile, install and configure Radiusclient on your host (https://wiki.freeradius.org/project/Radiusclient). This is required for wihan to work. It uses the radiusclient and the radacct commands for dealing with your radius server.
+
+### Wihan
+
+Copy the wihan_redirect executable and the hotspot.cgi script on your host.
+Copy the wihand executable on your host (e.g. under /usr/bin).
 
 ## Usage
 
