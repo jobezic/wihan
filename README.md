@@ -24,29 +24,29 @@ Enter the project directory and execute:
 
 ### Iptables rules
 
-Wihan relies on iptables to redirect the clients traffic. You have to set manually some chains and rules on the host:
+Wihan relies on iptables to redirect the clients traffic. You have to set manually some chains and rules on the host, where <listening interface> is the network interface for the hotspot clients, <listening interface ip> is its own ip and <wan interface> is the wan interface. You can specify an allowed host or domain in <allowed host / domain> for your captive portal. If you want to specify more allowed host or domains you can duplicate the specified rule.
 ```
 iptables -t mangle -N wlan0_Trusted
 iptables -t mangle -N wlan0_Outgoing
 iptables -t mangle -N wlan0_Incoming
-iptables -t mangle -I PREROUTING 1 -i br0 -j wlan0_Outgoing
-iptables -t mangle -I PREROUTING 1 -i br0 -j wlan0_Trusted
-iptables -t mangle -I POSTROUTING 1 -o br0 -j wlan0_Incoming
+iptables -t mangle -I PREROUTING 1 -i <listening interface> -j wlan0_Outgoing
+iptables -t mangle -I PREROUTING 1 -i <listening interface> -j wlan0_Trusted
+iptables -t mangle -I POSTROUTING 1 -o <listening interface> -j wlan0_Incoming
 iptables -t nat -N wlan0_Outgoing
 iptables -t nat -N wlan0_Router
 iptables -t nat -N wlan0_Internet
 iptables -t nat -N wlan0_Global
 iptables -t nat -N wlan0_Unknown
 iptables -t nat -N wlan0_AuthServers
-iptables -t nat -A PREROUTING -i br0 -j wlan0_Outgoing
-iptables -t nat -A wlan0_Outgoing -d <wan ip> -j wlan0_Router
+iptables -t nat -A PREROUTING -i <listening interface> -j wlan0_Outgoing
+iptables -t nat -A wlan0_Outgoing -d <listening interface ip> -j wlan0_Router
 iptables -t nat -A wlan0_Router -j ACCEPT
 iptables -t nat -A wlan0_Outgoing -j wlan0_Internet
 iptables -t nat -A wlan0_Internet -m mark --mark 0x2 -j ACCEPT
 iptables -t nat -A wlan0_Internet -j wlan0_Unknown
 iptables -t nat -A wlan0_Unknown -j wlan0_AuthServers
 iptables -t nat -A wlan0_Unknown -j wlan0_Global
-iptables -t nat -A wlan0_Unknown -p tcp --dport 80 -j DNAT --to-destination <wan ip>:80
+iptables -t nat -A wlan0_Unknown -p tcp --dport 80 -j DNAT --to-destination <listening interface ip>:80
 iptables -t nat -A wlan0_Global -d <allowed host/domain> -j ACCEPT
 iptables -t filter -N wlan0_Internet
 iptables -t filter -N wlan0_AuthServers
@@ -55,11 +55,11 @@ iptables -t filter -N wlan0_Known
 iptables -t filter -N wlan0_Unknown
 iptables -t filter -N wlan0_Traffic_In
 iptables -t filter -N wlan0_Traffic_Out
-iptables -t filter -I FORWARD -i br0 -j wlan0_Internet
+iptables -t filter -I FORWARD -i <listening interface> -j wlan0_Internet
 iptables -t filter -A wlan0_Internet -m state --state INVALID -j DROP
-iptables -t filter -A wlan0_Internet -o wan1 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+iptables -t filter -A wlan0_Internet -o <wan interface> -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 iptables -t filter -A wlan0_Internet -j wlan0_AuthServers
-iptables -t filter -A wlan0_AuthServers -d <wan ip> -j ACCEPT
+iptables -t filter -A wlan0_AuthServers -d <listening interface ip> -j ACCEPT
 iptables -t filter -A wlan0_Internet -j wlan0_Global
 iptables -t filter -A wlan0_Global -d <allowed host/domain> -j ACCEPT
 iptables -t filter -A wlan0_Internet -m mark --mark 0x2 -j wlan0_Known
@@ -83,7 +83,10 @@ Start wihan with:
 e.g.
 
 ```
-wihand -l /tmp/wihand.log -i br0
+wihand -l /tmp/wihand.log -i 
+
+
+
 ```
 
 It goes in background listening for new connections to the br0 interface.
