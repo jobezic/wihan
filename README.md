@@ -1,7 +1,6 @@
 # Wihan
 
 Wihan is a daemon to provide WiFi access and control and hotspot capabilities. It is designed specifically for embedded devices (like routers running OpenWrt).
-Actually this project is a sort of a framework that should be customized in order to work. The wihand daemon is the mean part of this framework and it is fully functional. Some other minor parts need to be customized.
 
 This project is composed by:
 
