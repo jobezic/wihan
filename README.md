@@ -36,7 +36,7 @@ Copy wihand and wihan_redirect to your bin path.
 
 Copy setrules.sh to /etc/wihan
 
-## Configuration
+### Configuration
 
 You can find a sample configuration file in example.
 Edit the configuration file according to your needs and copy it to /etc/wihan.
