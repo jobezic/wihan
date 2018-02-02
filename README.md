@@ -26,17 +26,15 @@ Enter the project directory and execute:
 
 ```make```
 
+```make install DESTDIR=<somedir>```
+
 ### Radiusclient
 
 Compile, install and configure Radiusclient on your host (https://wiki.freeradius.org/project/Radiusclient). This is required for wihan to work. It uses the radiusclient and the radacct commands for dealing with your radius server.
 
 ## Deployment
 
-Copy the wihan_redirect executable and the hotspot.cgi script on your host.
-
-Copy wihand and wihan_redirect to your bin path.
-
-Copy setrules.sh to /etc/wihan
+Manually copy the content of <somedir> to the host.
 
 ### Configuration
 
