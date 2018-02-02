@@ -15,6 +15,7 @@ $(PROG): $(OBJS) wihan_redirect
 
 clean:
 	rm -rf src/*.o a.out $(PROG)
+	$(MAKE) -C wihan_redirect clean
 
 .PHONY: wihan_redirect
 wihan_redirect:
@@ -24,9 +25,10 @@ wihan_redirect:
 install: $(PROG)
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
 	mkdir -p $(DESTDIR)/etc/wihan
+	mkdir -p $(DESTDIR)/etc/wihan/www
 	cp $(PROG) $(DESTDIR)$(PREFIX)/bin
 	cp wihan_redirect/wihan_redirect $(DESTDIR)$(PREFIX)/bin
 	cp utils/setrules.sh $(DESTDIR)/etc/wihan
 	chmod +x $(DESTDIR)/etc/wihan/setrules.sh
 	cp example/conf $(DESTDIR)/etc/wihan
-	cp wihan_redirect/hotspot.cgi $(DESTDIR)/etc/wihan
+	cp wihan_redirect/hotspot.cgi $(DESTDIR)/etc/wihan/www
