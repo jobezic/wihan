@@ -52,6 +52,14 @@ Start wihan_redirect with:
 wihan_redirect
 ```
 
+If you want to put it in background run
+
+```
+wihan_redirect &
+```
+
+instead.
+
 Start wihan with:
 
 ```wihand -c <config>```
