@@ -1,0 +1,9 @@
+#
+# Wihan config file
+#
+
+iface br0
+net 192.168.4.1
+wan wan1
+allow www.geenkle.com,facebook.com,google.com
+log /tmp/wihan.log
