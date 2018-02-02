@@ -41,10 +41,10 @@ Manually copy the content of ```<somedir>``` to the host.
 You can find a sample configuration file in example.
 Edit the configuration file according to your needs and copy it to /etc/wihan.
 
-## Usage
-
 In order to redirect your clients to your captive portal you have to setup the hotspot.cgi script and start wihan_redirect.
 To setup your hotspot.cgi script read it and make your changes as described inside the cgi script.
+
+## Usage
 
 Start wihan_redirect with:
 
