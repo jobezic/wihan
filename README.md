@@ -34,7 +34,7 @@ Compile, install and configure Radiusclient on your host (https://wiki.freeradiu
 
 ## Deployment
 
-Manually copy the content of <somedir> to the host.
+Manually copy the content of ```<somedir>``` to the host.
 
 ### Configuration
 
