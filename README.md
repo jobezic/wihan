@@ -32,6 +32,8 @@ Compile, install and configure Radiusclient on your host (https://wiki.freeradiu
 
 ## Deployment
 
+Copy the wihan_redirect executable and the hotspot.cgi script on your host.
+
 Copy wihand and wihan_redirect to your bin path.
 
 Copy setrules.sh to /etc/wihan
@@ -40,11 +42,6 @@ Copy setrules.sh to /etc/wihan
 
 You can find a sample configuration file in example.
 Edit the configuration file according to your needs and copy it to /etc/wihan.
-
-### Wihan
-
-Copy the wihan_redirect executable and the hotspot.cgi script on your host.
-Copy the wihand executable on your host (e.g. under /usr/bin).
 
 ## Usage
 
