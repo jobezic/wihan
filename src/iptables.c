@@ -44,6 +44,16 @@ int add_mac_rule_to_chain(const char *table, const char *chain, const char *mac,
     return retcode;
 }
 
+int add_dest_rule(const char* table, const char * chain, const char *dest, const char *policy) {
+    char cmd[255];
+    int retcode;
+
+    snprintf(cmd, sizeof cmd, "iptables -t %s -A %s -d %s -j %s", table, chain, dest, policy);
+    retcode = system(cmd);
+
+    return retcode;
+}
+
 int check_chain_rule(const char *table, const char *chain, const char *str) {
     char cmd[255];
     int retcode;

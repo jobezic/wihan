@@ -79,3 +79,18 @@ int get_mac(char *iface, char *mac) {
 
     return ret;
 }
+
+void trim(char *str)
+{
+  char *end;
+
+  while(isspace((unsigned char)*str)) str++;
+
+  if(*str == 0)
+    return;
+
+  end = str + strlen(str) - 1;
+  while(end > str && isspace((unsigned char)*end)) end--;
+
+  *(end+1) = 0;
+}

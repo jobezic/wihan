@@ -20,6 +20,7 @@
  * Author: Giovanni Bezicheri <giovanni@geenkle.com>
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -52,6 +53,8 @@
 #define __READ_TRAFFIC_IN 170
 #define __READ_TRAFFIC_OUT 180
 #define __REMOVE_HOST 190
+#define __FILTER_GLOBAL_ADD 200
+#define __NAT_GLOBAL_ADD 210
 
 /* Define the host proto */
 typedef struct {
@@ -70,9 +73,13 @@ static int running = 0;
 static int delay = 1;
 static char *conf_file_name = NULL;
 static char *pid_file_name = NULL;
-static char *interface = NULL;
 static int pid_fd = -1;
 static char *app_name = "wihand";
+static char *iface = NULL;
+static char *iface_network_ip = NULL;
+static char *wan = NULL;
+static char *logfile = NULL;
+static char *allowed_garden = NULL;
 static FILE *log_stream = NULL;
 host_t hosts[65535];
 int hosts_len, loopcount = 1;
@@ -150,6 +157,11 @@ int read_conf_file(int reload)
 {
     FILE *conf_file = NULL;
     int ret = -1;
+    char * line = NULL;
+    size_t len = 0;
+    ssize_t read;
+    char param[255];
+    char val[255];
 
     if (conf_file_name == NULL) return 0;
 
@@ -161,7 +173,28 @@ int read_conf_file(int reload)
         return -1;
     }
 
-    ret = fscanf(conf_file, "%d", &delay);
+    while ((read = getline(&line, &len, conf_file)) != -1) {
+        trim(line);
+        if (line[0] != '#' && line != "\n") {
+            sscanf(line, "%s %s\n", param, val);
+
+            if (strcmp(param, "iface") == 0) {
+                iface = strdup(val);
+            }
+            else if (strcmp(param, "net") == 0) {
+                iface_network_ip = strdup(val);
+            }
+            else if (strcmp(param, "wan") == 0) {
+                wan = strdup(val);
+            }
+            else if (strcmp(param, "allow") == 0) {
+                allowed_garden = strdup(val);
+            }
+            else if (strcmp(param, "log") == 0) {
+                logfile = strdup(val);
+            }
+        }
+    }
 
     if (ret > 0) {
         if (reload == 1) {
@@ -176,6 +209,9 @@ int read_conf_file(int reload)
     }
 
     fclose(conf_file);
+    if (line) {
+        free(line);
+    }
 
     return ret;
 }
@@ -253,6 +289,14 @@ int iptables_man(const int action, char* mac, char* data) {
             break;
         case __OUTGOING_ADD:
             retcode = add_mac_rule_to_chain("mangle", "wlan0_Outgoing", mac, "MARK --set-mark 2");
+
+            break;
+        case __FILTER_GLOBAL_ADD:
+            retcode = add_dest_rule("filter", "wlan0_Global", mac, "ACCEPT");
+
+            break;
+        case __NAT_GLOBAL_ADD:
+            retcode = add_dest_rule("nat", "wlan0_Global", mac, "ACCEPT");
 
             break;
         case __TRAFFIC_IN_ADD:
@@ -438,12 +482,11 @@ void print_help(void)
     printf("\n Usage: %s [OPTIONS]\n\n", app_name);
     printf("  Options:\n");
     printf("   -h --help                 Print this help\n");
-/*    printf("   -c --conf_file filename   Read configuration from the file\n");*/
+    printf("   -c --conf_file filename   Read configuration from the file\n");
 /*    printf("   -t --test_conf filename   Test configuration file\n"); */
-    printf("   -l --log_file  filename   Write logs to the file\n");
+/*    printf("   -l --log_file  filename   Write logs to the file\n");*/
     printf("   -f --foreground           Run in foreground\n");
     printf("   -p --pid_file  filename   PID file used by the daemon\n");
-    printf("   -i --interface  interface Interface used by the daemon\n");
     printf("   -s --status               Print status\n");
     printf("   -a --authorize mac        Authorize host\n");
     printf("\n");
@@ -540,16 +583,13 @@ int main(int argc, char *argv[])
         {"conf_file", required_argument, 0, 'c'},
         {"test_conf", required_argument, 0, 't'},
         {"status", no_argument, 0, 's'},
-        {"log_file", required_argument, 0, 'l'},
         {"help", no_argument, 0, 'h'},
         {"foreground", no_argument, 0, 'f'},
         {"pid_file", required_argument, 0, 'p'},
-        {"interface", required_argument, 1, 'i'},
         {"authorize", required_argument, 0, 'a'},
         {NULL, 0, 0, 0}
     };
     int value, option_index = 0;
-    char *log_file_name = NULL;
     int start_daemonized = 1;
 
     char called_station[20];
@@ -558,24 +598,19 @@ int main(int argc, char *argv[])
     char logstr[255];
     char radcmd[255];
     unsigned long traffic_in, traffic_out;
+    char* pt;
 
     /* init random seed */
     srand(time(NULL));
 
     /* Try to process all command line arguments */
-    while ((value = getopt_long(argc, argv, "c:l:t:p:a:i:fsh", long_options, &option_index)) != -1) {
+    while ((value = getopt_long(argc, argv, "c:l:t:p:a:fsh", long_options, &option_index)) != -1) {
         switch (value) {
             case 'c':
                 conf_file_name = strdup(optarg);
                 break;
-            case 'l':
-                log_file_name = strdup(optarg);
-                break;
             case 'p':
                 pid_file_name = strdup(optarg);
-                break;
-            case 'i':
-                interface = strdup(optarg);
                 break;
             case 't':
                 return test_conf_file(optarg);
@@ -613,30 +648,49 @@ int main(int argc, char *argv[])
     signal(SIGHUP, handle_signal);
     signal(SIGUSR1, handle_signal);
 
+    /* Read configuration from config file */
+    read_conf_file(0);
+
     /* Try to open log file to this daemon */
-    if (log_file_name != NULL) {
-        log_stream = fopen(log_file_name, "a+");
+    if (logfile != NULL) {
+        log_stream = fopen(logfile, "a+");
         if (log_stream == NULL) {
             syslog(LOG_ERR, "Can not open log file: %s, error: %s",
-                log_file_name, strerror(errno));
+                logfile, strerror(errno));
             log_stream = stdout;
         }
     } else {
         log_stream = stdout;
     }
 
-    /* Read configuration from config file */
-    read_conf_file(0);
-
     /* This global variable can be changed in function handling signal */
     running = 1;
 
     /* get <interface> mac address for radius calling station */
-    snprintf(logstr, sizeof logstr, "Using interface %s", interface);
+    snprintf(logstr, sizeof logstr, "Using interface %s", iface);
     writelog(log_stream, logstr);
-    get_mac(interface, called_station);
+    get_mac(iface, called_station);
     uppercase(called_station);
     replacechar(called_station, ':', '-');
+
+    /* set iptables rules */
+    snprintf(radcmd, sizeof radcmd, "/etc/wihan/setrules.sh %s %s %s", iface, iface_network_ip, wan);
+    ret = system(radcmd);
+    if (ret != 0) {
+        snprintf(logstr, sizeof logstr, "Fail to set init firewall rules");
+        writelog(log_stream, logstr);
+    }
+
+    /* Set allowed garden */
+    pt = strtok (allowed_garden, ",");
+    while (pt != NULL) {
+        if (iptables_man(__FILTER_GLOBAL_ADD, pt, NULL) == 0 && iptables_man(__NAT_GLOBAL_ADD, pt, NULL) == 0) {
+            snprintf(logstr, sizeof logstr, "Add %s to allowed garden", pt);
+            writelog(log_stream, logstr);
+        }
+
+        pt = strtok(NULL, ",");
+    }
 
     /* flush chains */
     if (iptables_man(__OUTGOING_FLUSH, NULL, NULL) == 0) {
@@ -820,8 +874,12 @@ int main(int argc, char *argv[])
 
     /* Free allocated memory */
     if (conf_file_name != NULL) free(conf_file_name);
-    if (log_file_name != NULL) free(log_file_name);
     if (pid_file_name != NULL) free(pid_file_name);
+    if (iface != NULL) free(iface);
+    if (iface_network_ip != NULL) free(iface_network_ip);
+    if (wan != NULL) free(wan);
+    if (logfile != NULL) free(logfile);
+    if (allowed_garden != NULL) free(allowed_garden);
 
     return EXIT_SUCCESS;
 }
