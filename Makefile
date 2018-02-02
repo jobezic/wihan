@@ -1,7 +1,7 @@
 PROG=wihand
 SOURCES = $(wildcard src/*.c)
 OBJS = $(SOURCES:.c=.o)
-CC = arm-linux-gcc
+#CC = arm-linux-gcc
 CFLAGS = -g -W -Wall -I../.. -Wno-unused-function $(CFLAGS_EXTRA) $(MODULE_CFLAGS)
 
 all: $(SOURCES) $(PROG)

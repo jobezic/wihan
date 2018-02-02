@@ -6,13 +6,8 @@ CFLAGS = -g -W -Wall -Werror -Imongoose -Wno-unused-function $(CFLAGS_EXTRA) $(M
 
 all: $(PROG)
 
-CC = arm-linux-gcc
-ifeq ($(OS), Windows_NT)
-CFLAGS += -lws2_32
-CC = arm-linux-gcc
-else
+#CC = arm-linux-gcc
 CFLAGS += -pthread
-endif
 
 ifeq ($(SSL_LIB),openssl)
 CFLAGS += -DMG_ENABLE_SSL -lssl -lcrypto
