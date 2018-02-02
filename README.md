@@ -32,8 +32,9 @@ Compile, install and configure Radiusclient on your host (https://wiki.freeradiu
 
 ## Deployment
 
-copy wihand and wihan_redirect to your bin path.
-copy setrules.sh to /etc/wihan
+Copy wihand and wihan_redirect to your bin path.
+
+Copy setrules.sh to /etc/wihan
 
 ## Configuration
 
