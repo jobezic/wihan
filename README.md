@@ -1,7 +1,6 @@
 # Wihan
 
 Wihan is a daemon to provide WiFi access and control and hotspot capabilities. It is designed specifically for embedded devices (like routers running OpenWrt).
-Actually this project is a sort of a framework that should be customized in order to work. The wihand daemon is the mean part of this framework and it is fully functional. Some other minor parts need to be customized.
 
 This project is composed by:
 
@@ -41,16 +40,24 @@ Manually copy the content of ```<somedir>``` to the host.
 You can find a sample configuration file in example.
 Edit the configuration file according to your needs and copy it to /etc/wihan.
 
-## Usage
-
 In order to redirect your clients to your captive portal you have to setup the hotspot.cgi script and start wihan_redirect.
 To setup your hotspot.cgi script read it and make your changes as described inside the cgi script.
+
+## Usage
 
 Start wihan_redirect with:
 
 ```
 wihan_redirect
 ```
+
+If you want to put it in background run
+
+```
+wihan_redirect &
+```
+
+instead.
 
 Start wihan with:
 
