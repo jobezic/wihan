@@ -49,14 +49,11 @@ LOGIN=$(echo "$QUERY_STRING" | cut -d'&' -f1 )
 if [ "$LOGIN" == "login=true" ]; then
     URL_REDIRECT=$(echo "$QUERY_STRING" | cut -d'&' -f2 | cut -d'=' -f2)
 
-    MACT=$(echo $MAC_ADDRESS | tr ':' '-' | tr '[:lower:]' '[:upper:]')
+    MACT=$(echo $MAC_ADDRESS | tr '[:lower:]' '[:upper:]')
 
-    radiusclient User-Name=$MACT > /dev/null 2>&1
+    cat /tmp/wihand.status | grep $MACT | awk '{ print $2}' | grep A > /dev/null 2>&1
 
     if [ $? -eq 0 ]; then
-
-    # Add device to the firewall
-    wihand -a $MAC_ADDRESS
 
     URL_DEC=$(printf '%b' "${URL_REDIRECT//%/\\x}")
 
