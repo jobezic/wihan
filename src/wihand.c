@@ -666,7 +666,7 @@ int main(int argc, char *argv[])
     /* This global variable can be changed in function handling signal */
     running = 1;
 
-    /* get <interface> mac address for radius calling station */
+    /* get <interface> mac address for calling station */
     snprintf(logstr, sizeof logstr, "Using interface %s", iface);
     writelog(log_stream, logstr);
     get_mac(iface, called_station);
@@ -720,18 +720,17 @@ int main(int argc, char *argv[])
 
         /* Init mac list */
         for (i = 0; i < hosts_len; i++) {
-            /* if status is not set make a radius auth request */
+            /* if status is not set make an auth request */
             if (!hosts[i].status) {
                 /* send auth request for host */
-                snprintf(logstr, sizeof logstr, "Sending Radius auth request for %s", hosts[i].mac);
+                snprintf(logstr, sizeof logstr, "Sending auth request for %s", hosts[i].mac);
                 writelog(log_stream, logstr);
 
-                snprintf(radcmd, sizeof radcmd, "/bin/radiusclient User-Name=\"%s\" > /dev/null 2>&1", hosts[i].mac);
-                retcode = system(radcmd);
-                snprintf(logstr, sizeof logstr, "Radius request %s for %s", (retcode == 0) ? "AUTHORIZED" : "REJECTED", hosts[i].mac);
+                retcode = radclient(hosts[i].mac);
+                snprintf(logstr, sizeof logstr, "Auth request %s for %s", (retcode == 0) ? "AUTHORIZED" : "REJECTED", hosts[i].mac);
                 writelog(log_stream, logstr);
 
-                /* set host status on radius response outcome */
+                /* set host status on auth response outcome */
                 if (retcode == 0
                         && iptables_man(__OUTGOING_ADD, hosts[i].mac, NULL)
                         && iptables_man(__TRAFFIC_IN_ADD, hosts[i].mac, NULL)
@@ -741,7 +740,7 @@ int main(int argc, char *argv[])
                         snprintf(logstr, sizeof logstr, "Authorize host %s", hosts[i].mac);
                         writelog(log_stream, logstr);
 
-                        /* execute radius start acct */
+                        /* execute start acct */
                         ret = radacct_start(hosts[i].mac, hosts[i].mac, called_station, hosts[i].session);
 
                         if (ret != 0) {
@@ -762,7 +761,7 @@ int main(int argc, char *argv[])
                     snprintf(logstr, sizeof logstr, "Authorize host %s", hosts[i].mac);
                     writelog(log_stream, logstr);
 
-                    /* execute radius start acct */
+                    /* execute start acct */
                     ret = radacct_start(hosts[i].mac, hosts[i].mac, called_station, hosts[i].session);
 
                     if (ret != 0) {
@@ -811,7 +810,7 @@ int main(int argc, char *argv[])
                 if (dnat_host(&hosts[i]) == 0) {
                     snprintf(logstr, sizeof logstr, "DNAT %s for idle timeout", hosts[i].mac);
 
-                    /* execute radius stop acct */
+                    /* execute stop acct */
                     ret = radacct_stop(hosts[i].mac,
                     difftime(hosts[i].stop_time,hosts[i].start_time),
                     hosts[i].traffic_in,
@@ -832,14 +831,14 @@ int main(int argc, char *argv[])
         /* Write hosts list */
         write_hosts_list(hosts, hosts_len);
 
-        /* Radius accounting */
+        /* Accounting */
         if (loopcount == __ACCT_INTERVAL) {
             loopcount = 1; /* reset the loop counter */
 
             /* cycle for each host */
             for (i = 0; i < hosts_len; i++) {
                 if (hosts[i].status == 'A') {
-                    /* execute radius interim acct */
+                    /* execute interim acct */
                     ret = radacct_interim_update(hosts[i].mac,
                     difftime(time(0), hosts[i].start_time),
                     hosts[i].traffic_in,

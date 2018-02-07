@@ -25,6 +25,16 @@
 #include <string.h>
 #include "utils.h"
 
+int radclient(char *username) {
+    int ret;
+    char cmd[255];
+
+    snprintf(cmd, sizeof cmd, "/bin/radiusclient User-Name=\"%s\" > /dev/null 2>&1", username);
+    ret = system(cmd);
+
+    return ret;
+}
+
 int radacct_start(char *username, char *called_station, char *calling_station, char *session) {
     int ret;
     char cmd[255];
