@@ -66,7 +66,7 @@ typedef struct {
     unsigned long traffic_in;
     unsigned long traffic_out;
     int idle;
-    char radius_session[20];
+    char session[20];
 } host_t;
 
 static int running = 0;
@@ -143,7 +143,7 @@ void write_hosts_list(host_t *hosts, int len) {
                     ebuff,
                     hosts[i].traffic_in,
                     hosts[i].traffic_out,
-                    hosts[i].radius_session);
+                    hosts[i].session);
         }
     }
 
@@ -742,7 +742,7 @@ int main(int argc, char *argv[])
                         writelog(log_stream, logstr);
 
                         /* execute radius start acct */
-                        ret = radacct_start(hosts[i].mac, hosts[i].mac, called_station, hosts[i].radius_session);
+                        ret = radacct_start(hosts[i].mac, hosts[i].mac, called_station, hosts[i].session);
 
                         if (ret != 0) {
                             snprintf(logstr, sizeof logstr, "Fail to execute radacct start for host %s", hosts[i].mac);
@@ -763,7 +763,7 @@ int main(int argc, char *argv[])
                     writelog(log_stream, logstr);
 
                     /* execute radius start acct */
-                    ret = radacct_start(hosts[i].mac, hosts[i].mac, called_station, hosts[i].radius_session);
+                    ret = radacct_start(hosts[i].mac, hosts[i].mac, called_station, hosts[i].session);
 
                     if (ret != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to execute radacct start for host %s", hosts[i].mac);
@@ -816,7 +816,7 @@ int main(int argc, char *argv[])
                     difftime(hosts[i].stop_time,hosts[i].start_time),
                     hosts[i].traffic_in,
                     hosts[i].traffic_out,
-                    hosts[i].radius_session);
+                    hosts[i].session);
 
                     if (ret != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to execute radacct stop for host %s", hosts[i].mac);
@@ -844,7 +844,7 @@ int main(int argc, char *argv[])
                     difftime(time(0), hosts[i].start_time),
                     hosts[i].traffic_in,
                     hosts[i].traffic_out,
-                    hosts[i].radius_session);
+                    hosts[i].session);
 
                     if (ret != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to execute radacct interim update for host %s", hosts[i].mac);
