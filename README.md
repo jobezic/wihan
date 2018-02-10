@@ -23,6 +23,10 @@ It needs the following dependencies:
 
 Enter the project directory and execute:
 
+```autoreconf -i```
+
+```./configure --prefix=/usr```
+
 ```make```
 
 ```make install DESTDIR=<somedir>```
