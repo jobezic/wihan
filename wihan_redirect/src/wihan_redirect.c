@@ -20,7 +20,8 @@
  * Author: Giovanni Bezicheri <giovanni@geenkle.com>
  */
 
-#include "mongoose.h"
+#include "../config.h"
+#include "mongoose/mongoose.h"
 
 static const char *s_http_port = "80";
 static struct mg_serve_http_opts s_http_server_opts;

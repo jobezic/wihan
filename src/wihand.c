@@ -34,6 +34,7 @@
 #include <errno.h>
 #include <time.h>
 #include <string.h>
+#include "../config.h"
 #include "utils.h"
 #include "iptables.h"
 #include "radius.h"
