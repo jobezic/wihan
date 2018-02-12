@@ -2,8 +2,35 @@
 # Wihan config file
 #
 
+#
+# Hotspot interface
+#
 iface br0
+
+#
+# Hotspot network
+#
 net 192.168.4.1
+
+#
+# Wan interface
+#
 wan wan1
+
+#
+# Allowed Garden
+#
 allow www.geenkle.com,facebook.com,google.com
+
+#
+# Log file
+#
 log /tmp/wihan.log
+
+#
+# AAA method
+#
+# Choose one between:
+# - radius
+#
+aaa_method radius

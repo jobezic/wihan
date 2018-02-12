@@ -81,6 +81,7 @@ static char *iface_network_ip = NULL;
 static char *wan = NULL;
 static char *logfile = NULL;
 static char *allowed_garden = NULL;
+static char *aaa_method = NULL;
 static FILE *log_stream = NULL;
 host_t hosts[65535];
 int hosts_len, loopcount = 1;
@@ -193,6 +194,9 @@ int read_conf_file(int reload)
             }
             else if (strcmp(param, "log") == 0) {
                 logfile = strdup(val);
+            }
+            else if (strcmp(param, "aaa_method") == 0) {
+                aaa_method = strdup(val);
             }
         }
     }
@@ -577,6 +581,19 @@ int start_host(host_t *host) {
 }
 
 
+int auth_host(char *mac, char *mode) {
+    int ret = 0;
+
+    if (strcmp(mode, "radius") == 0) {
+        ret = radclient(mac);
+    }
+    else if (strcmp(mode, "rex") == 0) {
+        //TODO
+    }
+
+    return ret;
+}
+
 /* Main function */
 int main(int argc, char *argv[])
 {
@@ -727,7 +744,7 @@ int main(int argc, char *argv[])
                 snprintf(logstr, sizeof logstr, "Sending auth request for %s", hosts[i].mac);
                 writelog(log_stream, logstr);
 
-                retcode = radclient(hosts[i].mac);
+                retcode = auth_host(hosts[i].mac, aaa_method);
                 snprintf(logstr, sizeof logstr, "Auth request %s for %s", (retcode == 0) ? "AUTHORIZED" : "REJECTED", hosts[i].mac);
                 writelog(log_stream, logstr);
 
@@ -880,6 +897,7 @@ int main(int argc, char *argv[])
     if (wan != NULL) free(wan);
     if (logfile != NULL) free(logfile);
     if (allowed_garden != NULL) free(allowed_garden);
+    if (aaa_method != NULL) free(aaa_method);
 
     return EXIT_SUCCESS;
 }
