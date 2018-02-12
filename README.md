@@ -23,9 +23,24 @@ It needs the following dependencies:
 
 Enter the project directory and execute:
 
+```autoreconf -i```
+
+Run the configure script to create the Makefile and so on:
+
+```./configure --prefix=/usr```
+
+If you want to cross-compile for another architecture please refer to the cross-compilation instructions for the autotools.
+I give you an example of cross-compiling for example for the arm architecture (yes, I have the toolchain already installed):
+
+```./configure --prefix=/usr --host=arm-linux```
+
+Run the make and the make install scripts:
+
 ```make```
 
 ```make install DESTDIR=<somedir>```
+
+The result is a bunch of files in <somedir>. You have to move them to the host architecture (as described below).
 
 ### Radiusclient
 
