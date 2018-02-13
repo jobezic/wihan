@@ -18,7 +18,7 @@
 #
 
 AUTOMAKE_OPTIONS = foreign nostdinc
-SUBDIRS = wihan_redirect
+SUBDIRS = wihan_redirect freeradius-client
 bin_PROGRAMS = wihand
 
 wihand_SOURCES = \

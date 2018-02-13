@@ -34,4 +34,5 @@ AC_LANG([C])
 AC_SEARCH_LIBS([pthread_mutex_lock], [pthread])
 
 AC_CONFIG_SUBDIRS([wihan_redirect])
+AC_CONFIG_SUBDIRS([freeradius-client])
 AC_OUTPUT
