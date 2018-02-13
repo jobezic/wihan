@@ -13,11 +13,15 @@ Clone the project on your system:
 ```
 git clone https://github.com/Geenkle/wihan.git
 ```
+
+Enter the project dir and clone the freeradius-client dependency:
+```
+cd wihan && git clone https://github.com/FreeRADIUS/freeradius-client.git
+```
+
 ### Prerequisites
 
-It needs the following dependencies:
-* Radiusclient (https://wiki.freeradius.org/project/Radiusclient)
-* iptables (http://www.netfilter.org/)
+It needs iptables (http://www.netfilter.org/) to work, but don't worry because it is installed in all common Linux distributions.
 
 ### Installing
 
