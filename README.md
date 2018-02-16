@@ -106,8 +106,8 @@ and the hosts will be allowed to pass without any redirection to the captive por
 Contributors are welcome! Join this nice project!
 
 Some steps to go forward:
-- wihan_redirect boot script,
-- import all radius code inside the wihand daemon (to get rid of the radiusclient dependency),
+- throttle,
+- sessions timeout,
 - some automatization, testing (Travis) and deployment,
 - a docker example and image,
 - any contributes.
