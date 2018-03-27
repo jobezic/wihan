@@ -104,7 +104,7 @@ and the hosts will be allowed to pass without any redirection to the captive por
 Contributors are welcome! Join this nice project!
 
 Some steps to go forward:
-- throttle,
+- bandwidth throttling,
 - sessions timeout,
 - some automatization, testing (Travis) and deployment,
 - a docker example and image,
