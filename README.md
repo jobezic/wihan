@@ -1,4 +1,4 @@
-# Wihan
+# Wihan [![Build Status](https://api.travis-ci.org/Geenkle/wihan.svg?branch=master)](https://api.travis-ci.org/Geenkle/wihan)
 
 Wihan is a daemon to provide WiFi access and control and hotspot capabilities. It is designed specifically for embedded devices (like routers running OpenWrt).
 
