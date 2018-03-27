@@ -48,10 +48,6 @@ Run the make and the make install scripts:
 
 The result is a bunch of files in <somedir>. You have to move them to the host architecture (as described below).
 
-### Radiusclient
-
-Compile, install and configure Radiusclient on your host (https://wiki.freeradius.org/project/Radiusclient). This is required for wihan to work. It uses the radiusclient and the radacct commands for dealing with your radius server.
-
 ## Deployment
 
 Manually copy the content of ```<somedir>``` to the host.
