@@ -23,6 +23,8 @@ cd wihan && git clone https://github.com/FreeRADIUS/freeradius-client.git
 
 It needs iptables (http://www.netfilter.org/) to work, but don't worry because it is installed in all common Linux distributions.
 
+For bandwidth throttling it requires the tc command (https://github.com/shemminger/iproute2) but also this is installed by default in all common Linux distributions.
+
 ### Installing
 
 Enter the project directory and execute:
