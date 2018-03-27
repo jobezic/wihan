@@ -29,7 +29,7 @@ For bandwidth throttling it requires the tc command (https://github.com/shemming
 
 Enter the project directory and execute:
 
-```autoreconf -i```
+```./bootstrap```
 
 Run the configure script to create the Makefile and so on:
 
