@@ -106,7 +106,7 @@ Contributors are welcome! Join this nice project!
 Some steps to go forward:
 - bandwidth throttling,
 - sessions timeout,
-- some automatization, testing (Travis) and deployment,
+- openwrt packages,
 - a docker example and image,
 - any contributes.
 
