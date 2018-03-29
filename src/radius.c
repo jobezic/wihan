@@ -54,7 +54,14 @@ int radacct_start(char *username, char *called_station, char *calling_station, c
      *
      * FIXME: make a fork of the main process for a better solution
      */
-    snprintf(cmd, sizeof cmd, "echo Acct-Status-Type=\"Start\" User-Name=\"%s\" Called-Station-Id=\"%s\" Calling-Station-Id=\"%s\" Acct-Session-Id=\"%s\" | /bin/radacct", mac, called_station, calling_station, token);
+    snprintf(cmd,
+            sizeof cmd,
+            "echo Acct-Status-Type=\"Start\" User-Name=\"%s\" Called-Station-Id=\"%s\" Calling-Station-Id=\"%s\" Acct-Session-Id=\"%s\" | /bin/radacct",
+            mac,
+            called_station,
+            calling_station,
+            token);
+
     ret = system(cmd);
 
     return ret;
@@ -74,7 +81,15 @@ int radacct_stop(char *username, time_t session_time, unsigned long octets_in, u
      *
      * FIXME: make a fork of the main process for a better solution
      */
-    snprintf(cmd, sizeof cmd, "echo Acct-Status-Type=\"Stop\" User-Name=\"%s\" Acct-Session-Time=%d Acct-Input-Octets=%lu Acct-Output-Octets=%lu Acct-Session-Id=\"%s\" | /bin/radacct", mac, session_time, octets_in, octets_out, session);
+    snprintf(cmd,
+            sizeof cmd,
+            "echo Acct-Status-Type=\"Stop\" User-Name=\"%s\" Acct-Session-Time=%d Acct-Input-Octets=%lu Acct-Output-Octets=%lu Acct-Session-Id=\"%s\" | /bin/radacct",
+            mac,
+            session_time,
+            octets_in,
+            octets_out,
+            session);
+
     ret = system(cmd);
 
     return ret;
@@ -94,7 +109,15 @@ int radacct_interim_update(char *username, time_t session_time, unsigned long oc
      *
      * FIXME: make a fork of the main process for a better solution
      */
-    snprintf(cmd, sizeof cmd, "echo Acct-Status-Type=3 User-Name=\"%s\" Acct-Session-Time=%d Acct-Input-Octets=%lu Acct-Output-Octets=%lu Acct-Session-Id=\"%s\" | /bin/radacct", mac, session_time, octets_in, octets_out, session);
+    snprintf(cmd,
+            sizeof cmd,
+            "echo Acct-Status-Type=3 User-Name=\"%s\" Acct-Session-Time=%d Acct-Input-Octets=%lu Acct-Output-Octets=%lu Acct-Session-Id=\"%s\" | /bin/radacct",
+            mac,
+            session_time,
+            octets_in,
+            octets_out,
+            session);
+
     ret = system(cmd);
 
     return ret;
