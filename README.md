@@ -14,14 +14,11 @@ Clone the project on your system:
 git clone https://github.com/Geenkle/wihan.git
 ```
 
-Enter the project dir and clone the freeradius-client dependency:
-```
-cd wihan && git clone https://github.com/FreeRADIUS/freeradius-client.git
-```
-
 ### Prerequisites
 
 It needs iptables (http://www.netfilter.org/) to work, but don't worry because it is installed in all common Linux distributions.
+
+Freeradius-client (https://github.com/FreeRADIUS/freeradius-client). Install it by the sources or the package for your OS.
 
 For bandwidth throttling it requires the tc command (https://github.com/shemminger/iproute2) but also this is installed by default in all common Linux distributions.
 
