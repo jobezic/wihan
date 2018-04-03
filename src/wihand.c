@@ -455,9 +455,9 @@ static void daemonize()
     }
 
     /* Reopen stdin (fd = 0), stdout (fd = 1), stderr (fd = 2) */
-    stdin = fopen("/dev/null", "r");
+    /* stdin = fopen("/dev/null", "r");
     stdout = fopen("/dev/null", "w+");
-    stderr = fopen("/dev/null", "w+");
+    stderr = fopen("/dev/null", "w+"); */
 
     /* Try to write PID of daemon to lockfile */
     if (pid_file_name != NULL)
