@@ -30,7 +30,7 @@ int radclient(char *username, char *nasid, char *host, char *port, char *secret)
     int ret;
     char cmd[255];
 
-    snprintf(cmd, sizeof cmd, "echo User-Name=%s,NAS-Identifier=%s /bin/radclient %s:%s auth %s > /dev/null 2>&1", username, nasid, host, port, secret);
+    snprintf(cmd, sizeof cmd, "echo User-Name=%s,NAS-Identifier=%s /usr/bin/radclient %s:%s auth %s > /dev/null 2>&1", username, nasid, host, port, secret);
     ret = system(cmd);
 
     return ret;
@@ -64,7 +64,7 @@ int radacct_start(char *username,
      */
     snprintf(cmd,
             sizeof cmd,
-            "echo Acct-Status-Type=\"Start\",User-Name=\"%s\",Called-Station-Id=\"%s\",Calling-Station-Id=\"%s\",Acct-Session-Id=\"%s\",NAS-Identifier=\"%s\" | /bin/radclient %s:%s acct %s",
+            "echo Acct-Status-Type=\"Start\",User-Name=\"%s\",Called-Station-Id=\"%s\",Calling-Station-Id=\"%s\",Acct-Session-Id=\"%s\",NAS-Identifier=\"%s\" | /usr/bin/radclient %s:%s acct %s",
             mac,
             called_station,
             calling_station,
@@ -103,7 +103,7 @@ int radacct_stop(char *username,
      */
     snprintf(cmd,
             sizeof cmd,
-            "echo Acct-Status-Type=\"Stop\",User-Name=\"%s\",Acct-Session-Time=%d,Acct-Input-Octets=%lu,Acct-Output-Octets=%lu,Acct-Session-Id=\"%s\",NAS-Identifier=\"%s\" | /bin/radclient %s:%s acct %s",
+            "echo Acct-Status-Type=\"Stop\",User-Name=\"%s\",Acct-Session-Time=%d,Acct-Input-Octets=%lu,Acct-Output-Octets=%lu,Acct-Session-Id=\"%s\",NAS-Identifier=\"%s\" | /usr/bin/radclient %s:%s acct %s",
             mac,
             session_time,
             octets_in,
@@ -143,7 +143,7 @@ int radacct_interim_update(char *username,
      */
     snprintf(cmd,
             sizeof cmd,
-            "echo Acct-Status-Type=3,User-Name=\"%s\",Acct-Session-Time=%d,Acct-Input-Octets=%lu,Acct-Output-Octets=%lu,Acct-Session-Id=\"%s\",NAS-Identifier=\"%s\" | /bin/radclient %s:%s acct %s",
+            "echo Acct-Status-Type=3,User-Name=\"%s\",Acct-Session-Time=%d,Acct-Input-Octets=%lu,Acct-Output-Octets=%lu,Acct-Session-Id=\"%s\",NAS-Identifier=\"%s\" | /usr/bin/radclient %s:%s acct %s",
             mac,
             session_time,
             octets_in,
