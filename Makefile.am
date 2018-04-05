@@ -30,7 +30,7 @@ wihand_SOURCES = \
 confdir = $(sysconfdir)/@PACKAGE@
 wwwdir = $(sysconfdir)/@PACKAGE@/www
 
-www_DATA = example/conf
+conf_DATA = example/conf
 
-dist_www_SCRIPTS = utils/setrules.sh
+dist_conf_SCRIPTS = utils/setrules.sh
 
