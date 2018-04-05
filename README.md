@@ -80,7 +80,7 @@ Start wihan with:
 e.g.
 
 ```
-wihand -c /etc/wihan/config
+wihand -c /etc/wihan/conf
 ```
 
 It goes in background listening for new connections to the listening interface.
