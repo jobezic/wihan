@@ -18,6 +18,11 @@ net 192.168.4.1
 wan wan1
 
 #
+# NAS Identificator
+#
+nasidentifier AABBCCDDEEFF
+
+#
 # Allowed Garden
 #
 allow www.geenkle.com,facebook.com,google.com
@@ -34,3 +39,11 @@ log /tmp/wihan.log
 # - radius
 #
 aaa_method radius
+
+#
+# RADIUS params
+#
+radius radius.myserver.com
+radauthport 1812
+radacctport 1813
+radsecret secr3t

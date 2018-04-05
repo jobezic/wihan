@@ -82,6 +82,11 @@ static char *wan = NULL;
 static char *logfile = NULL;
 static char *allowed_garden = NULL;
 static char *aaa_method = NULL;
+static char *radius_host = NULL;
+static char *radius_authport = NULL;
+static char *radius_acctport = NULL;
+static char *radius_secret = NULL;
+static char *nasidentifier = NULL;
 static FILE *log_stream = NULL;
 host_t hosts[65535];
 int hosts_len, loopcount = 1;
@@ -197,6 +202,21 @@ int read_conf_file(int reload)
             }
             else if (strcmp(param, "aaa_method") == 0) {
                 aaa_method = strdup(val);
+            }
+            else if (strcmp(param, "radius") == 0) {
+                radius_host = strdup(val);
+            }
+            else if (strcmp(param, "radauthport") == 0) {
+                radius_authport = strdup(val);
+            }
+            else if (strcmp(param, "radacctport") == 0) {
+                radius_acctport = strdup(val);
+            }
+            else if (strcmp(param, "radsecret") == 0) {
+                radius_secret = strdup(val);
+            }
+            else if (strcmp(param, "nasidentifier") == 0) {
+                nasidentifier = strdup(val);
             }
         }
     }
@@ -581,11 +601,11 @@ int start_host(host_t *host) {
 }
 
 
-int auth_host(char *mac, char *mode) {
+int auth_host(char *mac, char *mode, char* nasid, char *radhost, char* radport, char *radsecret) {
     int ret = 0;
 
     if (strcmp(mode, "radius") == 0) {
-        ret = radclient(mac);
+        ret = radclient(mac, nasid, radhost, radport, radsecret);
     }
     else if (strcmp(mode, "rex") == 0) {
         //TODO
@@ -744,7 +764,13 @@ int main(int argc, char *argv[])
                 snprintf(logstr, sizeof logstr, "Sending auth request for %s", hosts[i].mac);
                 writelog(log_stream, logstr);
 
-                retcode = auth_host(hosts[i].mac, aaa_method);
+                retcode = auth_host(hosts[i].mac,
+                                    aaa_method,
+                                    nasidentifier,
+                                    radius_host,
+                                    radius_authport,
+                                    radius_secret);
+
                 snprintf(logstr, sizeof logstr, "Auth request %s for %s", (retcode == 0) ? "AUTHORIZED" : "REJECTED", hosts[i].mac);
                 writelog(log_stream, logstr);
 
@@ -759,7 +785,14 @@ int main(int argc, char *argv[])
                         writelog(log_stream, logstr);
 
                         /* execute start acct */
-                        ret = radacct_start(hosts[i].mac, hosts[i].mac, called_station, hosts[i].session);
+                        ret = radacct_start(hosts[i].mac,
+                                            hosts[i].mac,
+                                            called_station,
+                                            hosts[i].session,
+                                            nasidentifier,
+                                            radius_host,
+                                            radius_authport,
+                                            radius_secret);
 
                         if (ret != 0) {
                             snprintf(logstr, sizeof logstr, "Fail to execute radacct start for host %s", hosts[i].mac);
@@ -780,7 +813,14 @@ int main(int argc, char *argv[])
                     writelog(log_stream, logstr);
 
                     /* execute start acct */
-                    ret = radacct_start(hosts[i].mac, hosts[i].mac, called_station, hosts[i].session);
+                    ret = radacct_start(hosts[i].mac,
+                                        hosts[i].mac,
+                                        called_station,
+                                        hosts[i].session,
+                                        nasidentifier,
+                                        radius_host,
+                                        radius_authport,
+                                        radius_secret);
 
                     if (ret != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to execute radacct start for host %s", hosts[i].mac);
@@ -830,10 +870,14 @@ int main(int argc, char *argv[])
 
                     /* execute stop acct */
                     ret = radacct_stop(hosts[i].mac,
-                    difftime(hosts[i].stop_time,hosts[i].start_time),
-                    hosts[i].traffic_in,
-                    hosts[i].traffic_out,
-                    hosts[i].session);
+                            difftime(hosts[i].stop_time,hosts[i].start_time),
+                            hosts[i].traffic_in,
+                            hosts[i].traffic_out,
+                            hosts[i].session,
+                            nasidentifier,
+                            radius_host,
+                            radius_authport,
+                            radius_secret);
 
                     if (ret != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to execute radacct stop for host %s", hosts[i].mac);
@@ -858,10 +902,14 @@ int main(int argc, char *argv[])
                 if (hosts[i].status == 'A') {
                     /* execute interim acct */
                     ret = radacct_interim_update(hosts[i].mac,
-                    difftime(time(0), hosts[i].start_time),
-                    hosts[i].traffic_in,
-                    hosts[i].traffic_out,
-                    hosts[i].session);
+                            difftime(time(0), hosts[i].start_time),
+                            hosts[i].traffic_in,
+                            hosts[i].traffic_out,
+                            hosts[i].session,
+                            nasidentifier,
+                            radius_host,
+                            radius_authport,
+                            radius_secret);
 
                     if (ret != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to execute radacct interim update for host %s", hosts[i].mac);
@@ -898,6 +946,11 @@ int main(int argc, char *argv[])
     if (logfile != NULL) free(logfile);
     if (allowed_garden != NULL) free(allowed_garden);
     if (aaa_method != NULL) free(aaa_method);
+    if (radius_host != NULL) free(radius_host);
+    if (radius_authport != NULL) free(radius_authport);
+    if (radius_acctport != NULL) free(radius_acctport);
+    if (radius_secret != NULL) free(radius_secret);
+    if (nasidentifier != NULL) free(nasidentifier);
 
     return EXIT_SUCCESS;
 }

@@ -26,17 +26,24 @@
 #include <time.h>
 #include "utils.h"
 
-int radclient(char *username) {
+int radclient(char *username, char *nasid, char *host, char *port, char *secret) {
     int ret;
     char cmd[255];
 
-    snprintf(cmd, sizeof cmd, "/bin/radiusclient User-Name=\"%s\" > /dev/null 2>&1", username);
+    snprintf(cmd, sizeof cmd, "echo User-Name=%s,NAS-Identifier=%s /bin/radclient %s:%s auth %s > /dev/null 2>&1", username, nasid, host, port, secret);
     ret = system(cmd);
 
     return ret;
 }
 
-int radacct_start(char *username, char *called_station, char *calling_station, char *session) {
+int radacct_start(char *username,
+        char *called_station,
+        char *calling_station,
+        char *session,
+        char *nasid,
+        char *radhost,
+        char *radport,
+        char *radsecret) {
     int ret;
     char cmd[255];
     char token[20];
@@ -57,18 +64,30 @@ int radacct_start(char *username, char *called_station, char *calling_station, c
      */
     snprintf(cmd,
             sizeof cmd,
-            "echo Acct-Status-Type=\"Start\" User-Name=\"%s\" Called-Station-Id=\"%s\" Calling-Station-Id=\"%s\" Acct-Session-Id=\"%s\" | /bin/radacct",
+            "echo Acct-Status-Type=\"Start\",User-Name=\"%s\",Called-Station-Id=\"%s\",Calling-Station-Id=\"%s\",Acct-Session-Id=\"%s\",NAS-Identifier=\"%s\" | /bin/radclient %s:%s acct %s",
             mac,
             called_station,
             calling_station,
-            token);
+            token,
+            nasid,
+            radhost,
+            radport,
+            radsecret);
 
     ret = system(cmd);
 
     return ret;
 }
 
-int radacct_stop(char *username, time_t session_time, unsigned long octets_in, unsigned long octets_out, char *session) {
+int radacct_stop(char *username,
+        time_t session_time,
+        unsigned long octets_in,
+        unsigned long octets_out,
+        char *session,
+        char *nasid,
+        char *radhost,
+        char *radport,
+        char *radsecret) {
     int ret;
     char cmd[255];
     char mac[20];
@@ -84,19 +103,31 @@ int radacct_stop(char *username, time_t session_time, unsigned long octets_in, u
      */
     snprintf(cmd,
             sizeof cmd,
-            "echo Acct-Status-Type=\"Stop\" User-Name=\"%s\" Acct-Session-Time=%d Acct-Input-Octets=%lu Acct-Output-Octets=%lu Acct-Session-Id=\"%s\" | /bin/radacct",
+            "echo Acct-Status-Type=\"Stop\",User-Name=\"%s\",Acct-Session-Time=%d,Acct-Input-Octets=%lu,Acct-Output-Octets=%lu,Acct-Session-Id=\"%s\",NAS-Identifier=\"%s\" | /bin/radclient %s:%s acct %s",
             mac,
             session_time,
             octets_in,
             octets_out,
-            session);
+            session,
+            nasid,
+            radhost,
+            radport,
+            radsecret);
 
     ret = system(cmd);
 
     return ret;
 }
 
-int radacct_interim_update(char *username, time_t session_time, unsigned long octets_in, unsigned long octets_out, char *session) {
+int radacct_interim_update(char *username,
+                           time_t session_time,
+                           unsigned long octets_in,
+                           unsigned long octets_out,
+                           char *session,
+                           char *nasid,
+                           char *radhost,
+                           char *radport,
+                           char *radsecret) {
     int ret;
     char cmd[255];
     char mac[20];
@@ -112,12 +143,16 @@ int radacct_interim_update(char *username, time_t session_time, unsigned long oc
      */
     snprintf(cmd,
             sizeof cmd,
-            "echo Acct-Status-Type=3 User-Name=\"%s\" Acct-Session-Time=%d Acct-Input-Octets=%lu Acct-Output-Octets=%lu Acct-Session-Id=\"%s\" | /bin/radacct",
+            "echo Acct-Status-Type=3,User-Name=\"%s\",Acct-Session-Time=%d,Acct-Input-Octets=%lu,Acct-Output-Octets=%lu,Acct-Session-Id=\"%s\",NAS-Identifier=\"%s\" | /bin/radclient %s:%s acct %s",
             mac,
             session_time,
             octets_in,
             octets_out,
-            session);
+            session,
+            nasid,
+            radhost,
+            radport,
+            radsecret);
 
     ret = system(cmd);
 
