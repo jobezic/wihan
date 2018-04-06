@@ -30,7 +30,7 @@ int radclient(char *username, char *nasid, char *host, char *port, char *secret)
     int ret;
     char cmd[255];
 
-    snprintf(cmd, sizeof cmd, "echo User-Name=%s,NAS-Identifier=%s /usr/bin/radclient %s:%s auth %s > /dev/null 2>&1", username, nasid, host, port, secret);
+    snprintf(cmd, sizeof cmd, "echo User-Name=%s,NAS-Identifier=%s | /usr/bin/radclient %s:%s auth %s > /dev/null 2>&1", username, nasid, host, port, secret);
     ret = system(cmd);
 
     return ret;
