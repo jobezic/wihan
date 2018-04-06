@@ -517,30 +517,33 @@ void print_help(void)
     printf("\n");
 }
 
-int read_arp(host_t * hosts) {
+int read_arp(host_t *hosts, char *iface) {
     FILE *file = fopen("/proc/net/arp", "r");
     char ip[16], mac[18];
     int i;
 
     if (file) {
-        char line [256];
+        char line[256];
         i = 0;
+
         fgets(line, sizeof line, file);
-        while ( fgets(line, sizeof line, file) ) {
-            char a, b;
 
-            sscanf(line, "%s %s %s %s", (char*)&ip, &a, &b, (char*)&mac);
+        while (fgets(line, sizeof line, file)) {
+            char a, b, c, dev[32];
 
-            uppercase(mac);
+            sscanf(line, "%s %s %s %s %s %s", (char*)&ip, &a, &b, (char*)&mac, &c, &dev);
 
-            strcpy(hosts[i].ip, ip);
-            strcpy(hosts[i].mac, mac);
+            if (strcmp(dev, iface) == 0) {
+                uppercase(mac);
 
-            i++;
+                strcpy(hosts[i].ip, ip);
+                strcpy(hosts[i].mac, mac);
+
+                i++;
+            }
         }
 
         fclose(file);
-
     }
 
     return i;
@@ -744,14 +747,14 @@ int main(int argc, char *argv[])
     }
 
     /* Read arp list */
-    hosts_len = read_arp(hosts);
+    hosts_len = read_arp(hosts, iface);
 
     /* Never ending loop of server */
     while (running == 1) {
         /* EP */
 
         /* Read arp cache */
-        arp_len = read_arp(arp_cache);
+        arp_len = read_arp(arp_cache, iface);
 
         /* Update hosts list */
         hosts_len = update_hosts(hosts, hosts_len, arp_cache, arp_len);
