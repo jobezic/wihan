@@ -779,9 +779,9 @@ int main(int argc, char *argv[])
 
                 /* set host status on auth response outcome */
                 if (retcode == 0
-                        && iptables_man(__OUTGOING_ADD, hosts[i].mac, NULL)
-                        && iptables_man(__TRAFFIC_IN_ADD, hosts[i].mac, NULL)
-                        && iptables_man(__TRAFFIC_OUT_ADD, hosts[i].mac, NULL))
+                        && iptables_man(__OUTGOING_ADD, hosts[i].mac, NULL) == 0
+                        && iptables_man(__TRAFFIC_IN_ADD, hosts[i].mac, NULL) == 0
+                        && iptables_man(__TRAFFIC_OUT_ADD, hosts[i].mac, NULL) == 0)
                 {
                     if(start_host(&hosts[i]) == 0) {
                         snprintf(logstr, sizeof logstr, "Authorize host %s", hosts[i].mac);
@@ -794,7 +794,7 @@ int main(int argc, char *argv[])
                                             hosts[i].session,
                                             nasidentifier,
                                             radius_host,
-                                            radius_authport,
+                                            radius_acctport,
                                             radius_secret);
 
                         if (ret != 0) {
@@ -822,7 +822,7 @@ int main(int argc, char *argv[])
                                         hosts[i].session,
                                         nasidentifier,
                                         radius_host,
-                                        radius_authport,
+                                        radius_acctport,
                                         radius_secret);
 
                     if (ret != 0) {
@@ -879,7 +879,7 @@ int main(int argc, char *argv[])
                             hosts[i].session,
                             nasidentifier,
                             radius_host,
-                            radius_authport,
+                            radius_acctport,
                             radius_secret);
 
                     if (ret != 0) {
@@ -911,7 +911,7 @@ int main(int argc, char *argv[])
                             hosts[i].session,
                             nasidentifier,
                             radius_host,
-                            radius_authport,
+                            radius_acctport,
                             radius_secret);
 
                     if (ret != 0) {

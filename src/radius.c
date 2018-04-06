@@ -28,7 +28,7 @@
 
 int radclient(char *username, char *nasid, char *host, char *port, char *secret) {
     int ret;
-    char cmd[255];
+    char cmd[512];
 
     snprintf(cmd, sizeof cmd, "echo User-Name=%s,NAS-Identifier=%s | /usr/bin/radclient %s:%s auth %s > /dev/null 2>&1", username, nasid, host, port, secret);
     ret = system(cmd);
@@ -45,7 +45,7 @@ int radacct_start(char *username,
         char *radport,
         char *radsecret) {
     int ret;
-    char cmd[255];
+    char cmd[512];
     char token[20];
     char mac[20];
 
@@ -89,7 +89,7 @@ int radacct_stop(char *username,
         char *radport,
         char *radsecret) {
     int ret;
-    char cmd[255];
+    char cmd[512];
     char mac[20];
 
     /* convert username in mac format */
@@ -129,7 +129,7 @@ int radacct_interim_update(char *username,
                            char *radport,
                            char *radsecret) {
     int ret;
-    char cmd[255];
+    char cmd[512];
     char mac[20];
 
     /* convert username in mac format */
