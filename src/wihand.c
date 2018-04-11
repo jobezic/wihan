@@ -519,7 +519,7 @@ void print_help(void)
 
 int read_arp(host_t *hosts, char *iface) {
     FILE *file = fopen("/proc/net/arp", "r");
-    char ip[16], mac[18];
+    char ip[20], mac[18];
     int i;
 
     if (file) {
