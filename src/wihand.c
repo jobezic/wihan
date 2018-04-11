@@ -519,8 +519,8 @@ void print_help(void)
 
 int read_arp(host_t *hosts, char *iface) {
     FILE *file = fopen("/proc/net/arp", "r");
-    char ip[20], mac[18];
-    int i;
+    char ip[128], mac[128], mask[128], dev[128];
+    int i, type, flags;
 
     if (file) {
         char line[256];
@@ -529,9 +529,7 @@ int read_arp(host_t *hosts, char *iface) {
         fgets(line, sizeof line, file);
 
         while (fgets(line, sizeof line, file)) {
-            char a, b, c, dev[32];
-
-            sscanf(line, "%s %s %s %s %s %s", (char*)&ip, &a, &b, (char*)&mac, &c, &dev);
+            sscanf(line, "%s 0x%x 0x%x %s %s %s\n", ip, &type, &flags, mac, mask, dev);
 
             if (strcmp(dev, iface) == 0) {
                 uppercase(mac);
