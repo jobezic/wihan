@@ -63,6 +63,7 @@ typedef struct {
     char ip[20];
     char mac[18];
     char status;
+    int staled;
     time_t start_time;
     time_t stop_time;
     unsigned long traffic_in;
@@ -541,6 +542,7 @@ int read_arp(host_t *hosts, char *iface) {
 
                 strcpy(hosts[i].ip, ip);
                 strcpy(hosts[i].mac, mac);
+                hosts[i].staled = (flags == 0);
 
                 i++;
             }
@@ -563,6 +565,7 @@ int update_hosts(host_t *hosts, int hosts_len, host_t *arp_cache, int arp_cache_
         found = 0;
         for (h = 0; h < new_hosts_len; h++) {
             if (strcmp(hosts[h].mac, arp_cache[i].mac) == 0) {
+                hosts[h].staled = arp_cache[i].staled;
                 found = 1;
                 break;
             }
@@ -572,6 +575,8 @@ int update_hosts(host_t *hosts, int hosts_len, host_t *arp_cache, int arp_cache_
             /* New host found */
             strcpy(hosts[new_hosts_len].ip, arp_cache[i].ip);
             strcpy(hosts[new_hosts_len].mac, arp_cache[i].mac);
+            hosts[new_hosts_len].staled = arp_cache[i].staled;
+
             new_hosts_len++;
         }
     }
