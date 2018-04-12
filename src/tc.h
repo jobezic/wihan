@@ -1,7 +1,7 @@
 /*
- * utils.h
+ * tc.h
  *
- * Copyright (C) 2017 Geenkle
+ * Copyright (C) 2017-2018 Geenkle
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -20,9 +20,16 @@
  * Author: Giovanni Bezicheri <giovanni@geenkle.com>
  */
 
-void uppercase (char *);
-void gen_random(char *, const int);
-int replacechar(char *, char, char);
-int get_mac(char *, char *);
-void trim(char *);
-void get_last_octects(char *, char *);
+typedef struct {
+    int classid;
+    unsigned int kbps;
+} bandclass_t;
+
+int init_bandwidth_stack(char *);
+int deinit_bandwidth_stack(char *);
+int register_bclass(char *, int, unsigned int, bandclass_t *);
+int unregister_bclass(char *, bandclass_t);
+int limit_down_band(char *, char *, bandclass_t *);
+int limit_up_band(char *, char *, unsigned int);
+int unlimit_up_band(char *, char *);
+int unlimit_down_band(char *, char *);

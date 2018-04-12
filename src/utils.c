@@ -94,3 +94,21 @@ void trim(char *str)
 
   *(end+1) = 0;
 }
+
+void get_last_octects(char *ip, char *str) {
+    char *token;
+    char *buf;
+    int i;
+
+    buf = strdup(ip);
+
+    token = strtok(buf, ".");
+
+    for (i = 0; i < 3; i++) {
+        token = strtok(NULL, ".");
+    }
+
+    strcpy(str, token);
+
+    free(buf);
+}

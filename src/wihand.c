@@ -38,6 +38,7 @@
 #include "utils.h"
 #include "iptables.h"
 #include "radius.h"
+#include "tc.h"
 
 
 #define __MAIN_INTERVAL 1
@@ -94,7 +95,8 @@ static char *radius_secret = NULL;
 static char *nasidentifier = NULL;
 static FILE *log_stream = NULL;
 host_t hosts[65535];
-int hosts_len, loopcount = 1;
+int hosts_len, loopcount = 1, bclass_len = 0;
+bandclass_t bclasses[65535];
 
 
 void writelog(FILE *log_stream, char *msg) {
@@ -404,8 +406,46 @@ int check_authorized_host(char *mac)
  */
 void handle_signal(int sig)
 {
+    int i;
+    char logstr[255];
+
     if (sig == SIGINT) {
         writelog(log_stream, "Stopping daemon ...");
+
+        /* Unset fw rules TODO */
+
+        /* Deinit bandwidth stack */
+        if (iface) {
+            for (i = 0; i < hosts_len; i++) {
+                if (hosts[i].b_up > 0) {
+                    snprintf(logstr, sizeof logstr, "Unlimit up bandwidth for host %s", hosts[i].mac);
+                    writelog(log_stream, logstr);
+
+                    unlimit_up_band(iface, hosts[i].ip);
+                }
+
+                if (hosts[i].b_down > 0) {
+                    snprintf(logstr, sizeof logstr, "Unlimit down bandwidth for host %s", hosts[i].mac);
+                    writelog(log_stream, logstr);
+
+                    unlimit_down_band(iface, hosts[i].ip);
+                }
+            }
+
+            if (bclass_len > 0) {
+                for (i = 0; i < bclass_len; i++) {
+                    snprintf(logstr, sizeof logstr, "Unregister bandwidth class %d", bclasses[i].classid);
+                    writelog(log_stream, logstr);
+
+                    unregister_bclass(iface, bclasses[i]);
+                }
+            }
+
+            writelog(log_stream, "Deinit bandwidth stack");
+            deinit_bandwidth_stack(iface);
+        }
+
+
         /* Unlock and close lockfile */
         if (pid_fd != -1) {
             lockf(pid_fd, F_ULOCK, 0);
@@ -638,7 +678,7 @@ int main(int argc, char *argv[])
 
     char called_station[20];
     host_t arp_cache[1024]; /* FIXME: allocate dynamically */
-    int arp_len, i, retcode, ret;
+    int arp_len, i, retcode, ret, bclass_i, bclass_found, classid;
     char logstr[255];
     char radcmd[255];
     unsigned long traffic_in, traffic_out;
@@ -750,6 +790,13 @@ int main(int argc, char *argv[])
         writelog(log_stream, "Flushing traffic out");
     }
 
+    /* init bandwidth stack */
+    if (init_bandwidth_stack(iface) == 0) {
+        writelog(log_stream, "Init bandwidth stack");
+    } else {
+        writelog(log_stream, "Failed to init bandwidth stack!");
+    }
+
     /* Read arp list */
     hosts_len = read_arp(hosts, iface);
 
@@ -797,6 +844,58 @@ int main(int argc, char *argv[])
                         hosts[i].session_timeout = reply.session_timeout;
                         hosts[i].b_up = reply.b_up;
                         hosts[i].b_down = reply.b_down;
+
+                        /* Set bandwidth */
+                        if (reply.b_up > 0) {
+                            if (limit_up_band(iface, hosts[i].ip, reply.b_up) == 0) {
+                                snprintf(logstr, sizeof logstr, "Set up bandwidth limit to %d kbps for host %s", reply.b_up, hosts[i].mac);
+                                writelog(log_stream, logstr);
+                            } else {
+                                snprintf(logstr, sizeof logstr, "Error in setting up bandwidth limit for host %s", hosts[i].mac);
+                                writelog(log_stream, logstr);
+                            }
+                        }
+
+                        if (reply.b_down > 0) {
+                            bclass_found = 0;
+                            for (bclass_i = 0; bclass_i < bclass_len; bclass_i++) {
+                                if (bclasses[bclass_i].kbps == reply.b_down) {
+                                    bclass_found = 1;
+
+                                    if (limit_down_band(iface, hosts[i].ip, &bclasses[bclass_i]) == 0) {
+                                        snprintf(logstr, sizeof logstr, "Set down bandwidth limit to %d kbps for host %s", reply.b_down, hosts[i].mac);
+                                        writelog(log_stream, logstr);
+                                    } else {
+                                        snprintf(logstr, sizeof logstr, "Error in set down bandwidth limit for host %s", hosts[i].mac);
+                                        writelog(log_stream, logstr);
+                                    }
+
+                                    break;
+                                }
+                            }
+
+                            /* Register new bclass */
+                            if (bclass_found == 0) {
+                                classid = (bclass_len+1)*10;
+                                if (register_bclass(iface, classid, reply.b_down, &bclasses[bclass_len]) == 0) {
+                                    snprintf(logstr, sizeof logstr, "Register new down bandwidth class %d", classid);
+                                    writelog(log_stream, logstr);
+
+                                    if (limit_down_band(iface, hosts[i].ip, &bclasses[bclass_len]) == 0) {
+                                        snprintf(logstr, sizeof logstr, "Set down bandwidth limit to %d kbps for host %s", bclasses[bclass_len].kbps, hosts[i].mac);
+                                        writelog(log_stream, logstr);
+                                    } else {
+                                        snprintf(logstr, sizeof logstr, "Error in set down bandwidth limit for host %s", hosts[i].mac);
+                                        writelog(log_stream, logstr);
+                                    }
+
+                                    bclass_len++;
+                                } else {
+                                    snprintf(logstr, sizeof logstr, "Error in registering new down bandwidth class %d", classid);
+                                    writelog(log_stream, logstr);
+                                }
+                            }
+                        }
 
                         /* execute start acct */
                         ret = radacct_start(hosts[i].mac,
@@ -896,6 +995,17 @@ int main(int argc, char *argv[])
 
                     if (ret != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to execute radacct stop for host %s", hosts[i].mac);
+                        writelog(log_stream, logstr);
+                    }
+
+                    /* Remove bandwidth limits */
+                    if (unlimit_up_band(iface, hosts[i].ip) != 0) {
+                        snprintf(logstr, sizeof logstr, "Fail to remove up bandwidth limit for host %s", hosts[i].mac);
+                        writelog(log_stream, logstr);
+                    }
+
+                    if (unlimit_down_band(iface, hosts[i].ip) != 0) {
+                        snprintf(logstr, sizeof logstr, "Fail to remove down bandwidth limit for host %s", hosts[i].mac);
                         writelog(log_stream, logstr);
                     }
                 } else {
