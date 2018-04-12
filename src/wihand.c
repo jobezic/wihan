@@ -1004,12 +1004,12 @@ int main(int argc, char *argv[])
                     }
 
                     /* Remove bandwidth limits */
-                    if (unlimit_up_band(iface, hosts[i].ip) != 0) {
+                    if (hosts[i].b_up > 0 && unlimit_up_band(iface, hosts[i].ip) != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to remove up bandwidth limit for host %s", hosts[i].mac);
                         writelog(log_stream, logstr);
                     }
 
-                    if (unlimit_down_band(iface, hosts[i].ip) != 0) {
+                    if (hosts[i].b_down > 0 && unlimit_down_band(iface, hosts[i].ip) != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to remove down bandwidth limit for host %s", hosts[i].mac);
                         writelog(log_stream, logstr);
                     }
