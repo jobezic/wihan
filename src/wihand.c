@@ -42,7 +42,8 @@
 
 #define __MAIN_INTERVAL 1
 #define __ACCT_INTERVAL 300
-#define __IDLE_TIMEOUT 60
+
+#define __DEFAULT_IDLE  60
 
 #define __OUTGOING_FLUSH 100
 #define __TRAFFIC_IN_FLUSH 110
@@ -59,7 +60,7 @@
 
 /* Define the host proto */
 typedef struct {
-    char ip[16];
+    char ip[20];
     char mac[18];
     char status;
     time_t start_time;
@@ -68,6 +69,10 @@ typedef struct {
     unsigned long traffic_out;
     int idle;
     char session[20];
+    unsigned int idle_timeout;
+    unsigned int session_timeout;
+    unsigned int b_up;
+    unsigned int b_down;
 } host_t;
 
 static int running = 0;
@@ -602,11 +607,11 @@ int start_host(host_t *host) {
 }
 
 
-int auth_host(char *mac, char *mode, char* nasid, char *radhost, char* radport, char *radsecret) {
+int auth_host(char *mac, char *mode, char* nasid, char *radhost, char* radport, char *radsecret, reply_t *reply) {
     int ret = 0;
 
     if (strcmp(mode, "radius") == 0) {
-        ret = radclient(mac, nasid, radhost, radport, radsecret);
+        ret = radclient(mac, nasid, radhost, radport, radsecret, reply);
     }
     else if (strcmp(mode, "rex") == 0) {
         //TODO
@@ -638,6 +643,7 @@ int main(int argc, char *argv[])
     char radcmd[255];
     unsigned long traffic_in, traffic_out;
     char* pt;
+    reply_t reply;
 
     /* init random seed */
     srand(time(NULL));
@@ -770,7 +776,8 @@ int main(int argc, char *argv[])
                                     nasidentifier,
                                     radius_host,
                                     radius_authport,
-                                    radius_secret);
+                                    radius_secret,
+                                    &reply);
 
                 snprintf(logstr, sizeof logstr, "Auth request %s for %s", (retcode == 0) ? "AUTHORIZED" : "REJECTED", hosts[i].mac);
                 writelog(log_stream, logstr);
@@ -784,6 +791,12 @@ int main(int argc, char *argv[])
                     if(start_host(&hosts[i]) == 0) {
                         snprintf(logstr, sizeof logstr, "Authorize host %s", hosts[i].mac);
                         writelog(log_stream, logstr);
+
+                        /* set host radius params */
+                        hosts[i].idle_timeout = (reply.idle > 0 ? reply.idle : __DEFAULT_IDLE);
+                        hosts[i].session_timeout = reply.session_timeout;
+                        hosts[i].b_up = reply.b_up;
+                        hosts[i].b_down = reply.b_down;
 
                         /* execute start acct */
                         ret = radacct_start(hosts[i].mac,
@@ -865,7 +878,8 @@ int main(int argc, char *argv[])
             }
 
             /* Check for idle timeout */
-            if (hosts[i].status == 'A' && hosts[i].idle > __IDLE_TIMEOUT) {
+            if (hosts[i].status == 'A' && hosts[i].idle > hosts[i].idle_timeout) {
+                /* Disconnect for idle timeout */
                 if (dnat_host(&hosts[i]) == 0) {
                     snprintf(logstr, sizeof logstr, "DNAT %s for idle timeout", hosts[i].mac);
 

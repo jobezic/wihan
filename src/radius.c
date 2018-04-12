@@ -25,15 +25,43 @@
 #include <string.h>
 #include <time.h>
 #include "utils.h"
+#include "radius.h"
 
-int radclient(char *username, char *nasid, char *host, char *port, char *secret) {
+int radclient(char *username, char *nasid, char *host, char *port, char *secret, reply_t *reply) {
     int ret;
     char cmd[512];
+    FILE *fp;
+    char *line;
+    size_t len = 0;
+    char param[255];
+    char val[255];
 
-    snprintf(cmd, sizeof cmd, "echo User-Name=%s,NAS-Identifier=%s | /usr/bin/radclient %s:%s auth %s > /dev/null 2>&1", username, nasid, host, port, secret);
-    ret = system(cmd);
+    snprintf(cmd, sizeof cmd, "echo User-Name=%s,NAS-Identifier=%s | radclient -4xt 2 %s:%s auth %s", username, nasid, host, port, secret);
 
-    return ret;
+    fp = popen(cmd, "r");
+    if (fp) {
+        while (getline(&line, &len, fp) != -1) {
+            trim(line);
+            sscanf(line, "%s = %s\n", param, val);
+
+            if (strcmp(param, "Idle-Timeout") == 0) {
+                reply->idle = atoi(val);
+            }
+            else if (strcmp(param, "Session-Timeout") == 0) {
+                reply->session_timeout = atoi(val);
+            }
+            else if (strcmp(param, "ChilliSpot-Bandwidth-Max-Down") == 0) {
+                reply->b_down = atoi(val);
+            }
+            else if (strcmp(param, "ChilliSpot-Bandwidth-Max-Up") == 0) {
+                reply->b_up = atoi(val);
+            }
+        }
+    }
+
+    ret = pclose(fp);
+
+    return WEXITSTATUS(ret);
 }
 
 int radacct_start(char *username,
