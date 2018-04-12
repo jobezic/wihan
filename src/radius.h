@@ -20,7 +20,15 @@
  * Author: Giovanni Bezicheri <giovanni@geenkle.com>
  */
 
-int radclient(char *, char *, char *, char *, char *);
+/* Replies */
+typedef struct {
+    unsigned int idle;
+    unsigned int session_timeout;
+    unsigned int b_down;
+    unsigned int b_up;
+} reply_t;
+
+int radclient(char *, char *, char *, char *, char *, reply_t *);
 int radacct_start(char *, char *, char *, char *, char *, char *, char *, char *);
 int radacct_stop(char *, time_t, unsigned long, unsigned long, char *, char *, char *, char *, char *);
 int radacct_interim_update(char *, time_t, unsigned long, unsigned long, char *, char *, char *, char *, char *);
