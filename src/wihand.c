@@ -771,7 +771,7 @@ int main(int argc, char *argv[])
         /* Init mac list */
         for (i = 0; i < hosts_len; i++) {
             /* if status is not set make an auth request */
-            if (!hosts[i].status) {
+            if ((!hosts[i].status || (hosts[i].status == 'D' && hosts[i].idle > hosts[i].idle_timeout)) && !hosts[i].staled) {
                 /* send auth request for host */
                 snprintf(logstr, sizeof logstr, "Sending auth request for %s", hosts[i].mac);
                 writelog(log_stream, logstr);
@@ -823,10 +823,10 @@ int main(int argc, char *argv[])
                 }
             }
 
-            /* check for iptables entries for the host */
+            /* check for iptables entries for the host (MANUAL AUTH) */
             retcode = check_authorized_host(hosts[i].mac);
 
-            if (retcode == 0 && hosts[i].status != 'A') {
+            if (!hosts[i].staled && retcode == 0 && hosts[i].status != 'A') {
                 if (start_host(&hosts[i]) == 0) {
                     snprintf(logstr, sizeof logstr, "Authorize host %s", hosts[i].mac);
                     writelog(log_stream, logstr);
@@ -848,7 +848,7 @@ int main(int argc, char *argv[])
                 }
             }
 
-            if (retcode > 0 && hosts[i].status != 'D') {
+            if (!hosts[i].staled && retcode > 0 && hosts[i].status != 'D') {
                 hosts[i].status = 'D';
             }
 
@@ -887,6 +887,7 @@ int main(int argc, char *argv[])
                 /* Disconnect for idle timeout */
                 if (dnat_host(&hosts[i]) == 0) {
                     snprintf(logstr, sizeof logstr, "DNAT %s for idle timeout", hosts[i].mac);
+                    writelog(log_stream, logstr);
 
                     /* execute stop acct */
                     ret = radacct_stop(hosts[i].mac,
@@ -905,8 +906,8 @@ int main(int argc, char *argv[])
                     }
                 } else {
                     snprintf(logstr, sizeof logstr, "Fail to DNAT %s for idle timeout", hosts[i].mac);
+                    writelog(log_stream, logstr);
                 }
-                writelog(log_stream, logstr);
             }
         }
 
