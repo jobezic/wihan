@@ -689,6 +689,8 @@ int main(int argc, char *argv[])
     unsigned long traffic_in, traffic_out;
     char* pt;
     reply_t reply;
+    time_t curtime;
+    char *dnat_reason;
 
     /* init random seed */
     srand(time(NULL));
@@ -981,11 +983,21 @@ int main(int argc, char *argv[])
                 hosts[i].idle++;
             }
 
-            /* Check for idle timeout */
-            if (hosts[i].status == 'A' && hosts[i].idle > hosts[i].idle_timeout) {
+            /* Check for idle timeout and session timeout */
+            curtime = time(NULL);
+            if (hosts[i].status == 'A' &&
+                (hosts[i].idle > hosts[i].idle_timeout ||
+                 hosts[i].session_timeout > 0 && curtime - hosts[i].start_time > hosts[i].session_timeout)) {
                 /* Disconnect for idle timeout */
                 if (dnat_host(&hosts[i]) == 0) {
-                    snprintf(logstr, sizeof logstr, "DNAT %s for idle timeout", hosts[i].mac);
+                    if (hosts[i].idle > hosts[i].idle_timeout) {
+                        dnat_reason = "idle timeout";
+                    }
+                    else {
+                        dnat_reason = "session timeout";
+                    }
+
+                    snprintf(logstr, sizeof logstr, "DNAT %s for %s", hosts[i].mac, dnat_reason);
                     writelog(log_stream, logstr);
 
                     /* execute stop acct */
@@ -1015,7 +1027,7 @@ int main(int argc, char *argv[])
                         writelog(log_stream, logstr);
                     }
                 } else {
-                    snprintf(logstr, sizeof logstr, "Fail to DNAT %s for idle timeout", hosts[i].mac);
+                    snprintf(logstr, sizeof logstr, "Fail to DNAT %s for %s", hosts[i].mac, dnat_reason);
                     writelog(log_stream, logstr);
                 }
             }
