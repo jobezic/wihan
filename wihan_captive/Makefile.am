@@ -18,12 +18,12 @@
 #
 
 AUTOMAKE_OPTIONS = foreign nostdinc
-bin_PROGRAMS = wihan_redirect
+bin_PROGRAMS = wihan_captive
 SUBDIRS = .
 
-wihan_redirect_SOURCES = \
+wihan_captive_SOURCES = \
 	src/mongoose/mongoose.c \
-	src/wihan_redirect.c
+	src/wihan_captive.c
 
 wwwdir = $(sysconfdir)/wihan/www
 dist_www_SCRIPTS = hotspot.cgi

@@ -18,7 +18,7 @@
 #
 
 AC_PREREQ([2.59])
-AC_INIT([wihan_redirect], [1.0], [giovanni@geenkle.com])
+AC_INIT([wihan_captive], [1.0], [giovanni@geenkle.com])
 AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_HEADER([config.h])
 AC_CONFIG_FILES([Makefile])

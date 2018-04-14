@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #
-# This is the hotspot.cgi redirect script for wihan_redirect.
+# This is the hotspot.cgi redirect script for wihan_captive.
 #
 # Please, make your change according to your needs:
 # 1. customize the redirect url by modifying the hotspot.geenkle.com url with yours.

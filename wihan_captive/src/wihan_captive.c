@@ -49,7 +49,7 @@ int main(void) {
   struct mg_connection *nc;
 
   mg_mgr_init(&mgr, NULL);
-  printf("Starting wihan_redirect on port %s\n", s_http_port);
+  printf("Starting wihan_captive on port %s\n", s_http_port);
   nc = mg_bind(&mgr, s_http_port, ev_handler);
   if (nc == NULL) {
     printf("Failed to create listener\n");

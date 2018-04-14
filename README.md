@@ -5,7 +5,7 @@ Wihan is a daemon to provide WiFi access and control and hotspot capabilities. I
 This project is composed by:
 
 * wihand that is the daemon that handle clients authorization and accounting through radius,
-* wihan_redirect that is a little web server based on Mongoose (https://github.com/cesanta/mongoose) that works in collaboration with the hotspot.cgi script to redirect your clients to the captive portal.
+* wihan_captive that is a little web server based on Mongoose (https://github.com/cesanta/mongoose) that works in collaboration with the hotspot.cgi script to redirect your clients to the captive portal.
 
 ## Getting Started
 
@@ -54,21 +54,21 @@ Manually copy the content of ```<somedir>``` to the host.
 You can find a sample configuration file in example.
 Edit the configuration file according to your needs and copy it to /etc/wihan.
 
-In order to redirect your clients to your captive portal you have to setup the hotspot.cgi script and start wihan_redirect.
+In order to redirect your clients to your captive portal you have to setup the hotspot.cgi script and start wihan_captive.
 To setup your hotspot.cgi script read it and make your changes as described inside the cgi script.
 
 ## Usage
 
-Start wihan_redirect with:
+Start wihan_captive with:
 
 ```
-wihan_redirect
+wihan_captive
 ```
 
 If you want to put it in background run
 
 ```
-wihan_redirect &
+wihan_captive &
 ```
 
 instead.
