@@ -75,6 +75,9 @@ typedef struct {
     unsigned int session_timeout;
     unsigned int b_up;
     unsigned int b_down;
+    unsigned int max_traffic_in;
+    unsigned int max_traffic_out;
+    unsigned int max_traffic;
 } host_t;
 
 static int running = 0;
@@ -851,6 +854,9 @@ int main(int argc, char *argv[])
                         hosts[i].session_timeout = reply.session_timeout;
                         hosts[i].b_up = reply.b_up;
                         hosts[i].b_down = reply.b_down;
+                        hosts[i].max_traffic_in = reply.traffic_in;
+                        hosts[i].max_traffic_out = reply.traffic_out;
+                        hosts[i].max_traffic = reply.traffic_total;
 
                         /* Set bandwidth */
                         if (reply.b_up > 0) {
@@ -987,11 +993,24 @@ int main(int argc, char *argv[])
             curtime = time(NULL);
             if (hosts[i].status == 'A' &&
                 (hosts[i].idle > hosts[i].idle_timeout ||
-                 hosts[i].session_timeout > 0 && curtime - hosts[i].start_time > hosts[i].session_timeout)) {
+                 hosts[i].session_timeout > 0 && curtime - hosts[i].start_time > hosts[i].session_timeout ||
+                 hosts[i].max_traffic_in > 0 && hosts[i].traffic_in > hosts[i].max_traffic_in ||
+                 hosts[i].max_traffic_out > 0 && hosts[i].traffic_out > hosts[i].max_traffic_out ||
+                 hosts[i].max_traffic > 0 && hosts[i].traffic_in + hosts[i].traffic_out > hosts[i].max_traffic))
+            {
                 /* Disconnect for idle timeout */
                 if (dnat_host(&hosts[i]) == 0) {
                     if (hosts[i].idle > hosts[i].idle_timeout) {
                         dnat_reason = "idle timeout";
+                    }
+                    else if (hosts[i].max_traffic_in > 0 && hosts[i].traffic_in > hosts[i].max_traffic_in) {
+                        dnat_reason = "traffic in limit reached";
+                    }
+                    else if (hosts[i].max_traffic_out > 0 && hosts[i].traffic_out > hosts[i].max_traffic_out) {
+                        dnat_reason = "traffic out limit reached";
+                    }
+                    else if (hosts[i].max_traffic > 0 && hosts[i].traffic_in + hosts[i].traffic_out > hosts[i].max_traffic) {
+                        dnat_reason = "traffic limit reached";
                     }
                     else {
                         dnat_reason = "session timeout";

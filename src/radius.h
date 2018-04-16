@@ -26,6 +26,9 @@ typedef struct {
     unsigned int session_timeout;
     unsigned int b_down;
     unsigned int b_up;
+    unsigned int traffic_in;
+    unsigned int traffic_out;
+    unsigned int traffic_total;
 } reply_t;
 
 int radclient(char *, char *, char *, char *, char *, reply_t *);
