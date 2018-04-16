@@ -50,10 +50,10 @@ int radclient(char *username, char *nasid, char *host, char *port, char *secret,
             else if (strcmp(param, "Session-Timeout") == 0) {
                 reply->session_timeout = atoi(val);
             }
-            else if (strcmp(param, "ChilliSpot-Bandwidth-Max-Down") == 0) {
+            else if (strcmp(param, "WISPr-Bandwidth-Max-Down") == 0) {
                 reply->b_down = atoi(val);
             }
-            else if (strcmp(param, "ChilliSpot-Bandwidth-Max-Up") == 0) {
+            else if (strcmp(param, "WISPr-Bandwidth-Max-Up") == 0) {
                 reply->b_up = atoi(val);
             }
             else if (strcmp(param, "ChilliSpot-Max-Input-Octets") == 0) {
