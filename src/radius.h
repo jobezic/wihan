@@ -20,6 +20,9 @@
  * Author: Giovanni Bezicheri <giovanni@geenkle.com>
  */
 
+#ifndef _RADIUS_H
+#define _RADIUS_H 1
+
 /* Replies */
 typedef struct {
     unsigned int idle;
@@ -35,3 +38,5 @@ int radclient(char *, char *, char *, char *, char *, reply_t *);
 int radacct_start(char *, char *, char *, char *, char *, char *, char *, char *);
 int radacct_stop(char *, time_t, unsigned long, unsigned long, char *, char *, char *, char *, char *);
 int radacct_interim_update(char *, time_t, unsigned long, unsigned long, char *, char *, char *, char *, char *);
+
+#endif

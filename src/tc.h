@@ -20,6 +20,9 @@
  * Author: Giovanni Bezicheri <giovanni@geenkle.com>
  */
 
+#ifndef _TC_H
+#define _TC_H 1
+
 typedef struct {
     int classid;
     unsigned int kbps;
@@ -33,3 +36,5 @@ int limit_down_band(char *, char *, bandclass_t *);
 int limit_up_band(char *, char *, unsigned int);
 int unlimit_up_band(char *, char *);
 int unlimit_down_band(char *, char *);
+
+#endif
