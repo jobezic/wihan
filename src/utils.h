@@ -1,7 +1,7 @@
 /*
  * utils.h
  *
- * Copyright (C) 2017 Geenkle
+ * Copyright (C) 2017-2018 Geenkle
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
