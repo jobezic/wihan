@@ -30,9 +30,9 @@ int radclient(char *username, char *nasid, char *host, char *port, char *secret,
     int ret;
     char cmd[512];
     FILE *fp;
-    char *line;
+    char *line = NULL;
     size_t len = 0;
-    char param[255];
+    char param[255] = "";
     char val[255];
 
     snprintf(cmd, sizeof cmd, "echo User-Name=%s,NAS-Identifier=%s | radclient -4xt 2 %s:%s auth %s", username, nasid, host, port, secret);
@@ -64,6 +64,16 @@ int radclient(char *username, char *nasid, char *host, char *port, char *secret,
             else if (strcmp(param, "ChilliSpot-Max-Total-Octets") == 0) {
                 reply->traffic_total = atoi(val);
             }
+
+            if (line != NULL) {
+                free(line);
+                line = NULL;
+            }
+        }
+
+        if (line != NULL) {
+            free(line);
+            line = NULL;
         }
     }
 

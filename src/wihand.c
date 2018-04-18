@@ -138,7 +138,7 @@ int read_conf_file(int reload)
     char * line = NULL;
     size_t len = 0;
     ssize_t read;
-    char param[255];
+    char param[255] = "";
     char val[255];
 
     if (conf_file_name == NULL) return 0;
@@ -153,7 +153,7 @@ int read_conf_file(int reload)
 
     while ((read = getline(&line, &len, conf_file)) != -1) {
         trim(line);
-        if (line[0] != '#' && line != "\n") {
+        if (line[0] != '#' && line[0] != '\n') {
             sscanf(line, "%s %s\n", param, val);
 
             if (strcmp(param, "iface") == 0) {
