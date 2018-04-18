@@ -23,6 +23,8 @@
 #ifndef _RADIUS_H
 #define _RADIUS_H 1
 
+#include <time.h>
+
 /* Replies */
 typedef struct {
     unsigned int idle;
