@@ -24,6 +24,9 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
+#include <syslog.h>
+#include <errno.h>
 
 void uppercase ( char *sPtr )
 {
@@ -111,4 +114,25 @@ void get_last_octects(char *ip, char *str) {
     strcpy(str, token);
 
     free(buf);
+}
+
+void writelog(FILE *log_stream, char *msg) {
+    struct tm *sTm;
+    char buff[20];
+    int ret;
+
+    time_t now = time (0);
+    sTm = gmtime (&now);
+    strftime (buff, sizeof(buff), "%Y-%m-%d %H:%M:%S", sTm);
+    ret = fprintf(log_stream, "[%s] %s\n", buff, msg);
+
+    if (ret < 0) {
+        syslog(LOG_ERR, "Can not write to log stream: %s", strerror(errno));
+        return;
+    }
+    ret = fflush(log_stream);
+    if (ret != 0) {
+        syslog(LOG_ERR, "Can not fflush() log stream: %s", strerror(errno));
+        return;
+    }
 }
