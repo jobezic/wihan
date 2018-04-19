@@ -47,3 +47,14 @@ radius radius.myserver.com
 radauthport 1812
 radacctport 1813
 radsecret secr3t
+
+#
+# WAI Server
+#
+wai_port 3990
+
+#
+# SSL
+#
+sslcert sslcert/new.cert.cert
+sslkey sslcert/new.cert.key

@@ -1,4 +1,4 @@
-# Copyright (C) 2017 Geenkle
+# Copyright (C) 2017-2018 Geenkle
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -20,13 +20,21 @@
 AUTOMAKE_OPTIONS = foreign nostdinc
 SUBDIRS = wihan_redirect
 bin_PROGRAMS = wihand
+wihand_LDADD = -lpthread
+
+if WITH_SSL
+wihand_CPPFLAGS = -DMG_ENABLE_SSL
+wihand_LDADD += -lssl -lcrypto
+endif
 
 wihand_SOURCES = \
 	src/iptables.c \
 	src/radius.c \
 	src/utils.c \
 	src/tc.c \
-	src/wihand.c
+	src/wihand.c \
+	mongoose/mongoose.c \
+	src/wai.c
 
 confdir = $(sysconfdir)/@PACKAGE@
 wwwdir = $(sysconfdir)/@PACKAGE@/www

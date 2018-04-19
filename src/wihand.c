@@ -39,6 +39,7 @@
 #include "iptables.h"
 #include "radius.h"
 #include "tc.h"
+#include "wai.h"
 
 static int running = 0;
 static int delay = 1;
@@ -57,6 +58,9 @@ static char *radius_authport = NULL;
 static char *radius_acctport = NULL;
 static char *radius_secret = NULL;
 static char *nasidentifier = NULL;
+static char *wai_port = NULL;
+static char *config_ssl_cert = NULL;
+static char *config_ssl_key = NULL;
 static FILE *log_stream = NULL;
 host_t hosts[65535];
 int hosts_len, loopcount = 1, bclass_len = 0;
@@ -167,6 +171,16 @@ int read_conf_file(int reload)
             }
             else if (strcmp(param, "nasidentifier") == 0) {
                 nasidentifier = strdup(val);
+            }
+            }
+            else if (strcmp(param, "wai_port") == 0) {
+                wai_port = strdup(val);
+            }
+            else if (strcmp(param, "sslcert") == 0) {
+                config_ssl_cert = strdup(val);
+            }
+            else if (strcmp(param, "sslkey") == 0) {
+                config_ssl_key = strdup(val);
             }
         }
     }
@@ -744,6 +758,11 @@ int main(int argc, char *argv[])
     /* Read arp list */
     hosts_len = read_arp(hosts, iface);
 
+    /* Start WAI */
+    if (wai_port == NULL || start_wai(wai_port, log_stream, config_ssl_cert, config_ssl_key) != 0) {
+        writelog(log_stream, "Failed to init WAI!");
+    }
+
     /* Never ending loop of server */
     while (running == 1) {
         /* EP */
@@ -1022,6 +1041,10 @@ int main(int argc, char *argv[])
         sleep(__MAIN_INTERVAL);
     }
 
+
+    /* Stop WAI */
+    stop_wai();
+
     /* Close log file, when it is used. */
     if (log_stream != stdout) {
         fclose(log_stream);
@@ -1045,6 +1068,9 @@ int main(int argc, char *argv[])
     if (radius_acctport != NULL) free(radius_acctport);
     if (radius_secret != NULL) free(radius_secret);
     if (nasidentifier != NULL) free(nasidentifier);
+    if (wai_port != NULL) free(wai_port);
+    if (config_ssl_cert != NULL) free(config_ssl_cert);
+    if (config_ssl_key != NULL) free(config_ssl_key);
 
     return EXIT_SUCCESS;
 }
