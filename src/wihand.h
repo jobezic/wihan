@@ -64,4 +64,6 @@ typedef struct {
     unsigned int max_traffic;
 } host_t;
 
+int get_host_by_ip(host_t [], int, char *, host_t **);
+
 #endif

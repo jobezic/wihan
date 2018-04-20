@@ -66,6 +66,20 @@ host_t hosts[65535];
 int hosts_len, loopcount = 1, bclass_len = 0;
 bandclass_t bclasses[65535];
 
+int get_host_by_ip(host_t hosts[], int hosts_len, char *ip, host_t **host) {
+    int i = 0;
+    host_t *target_host = NULL;
+
+    for (i = 0; i < hosts_len; i++) {
+        if (strcmp(hosts[i].ip, ip) == 0) {
+            target_host = &hosts[i];
+            *host = target_host;
+            break;
+        }
+    }
+
+    return target_host == NULL;
+}
 
 void write_hosts_list(host_t *hosts, int len) {
     FILE *status_file = NULL;
@@ -759,7 +773,7 @@ int main(int argc, char *argv[])
     hosts_len = read_arp(hosts, iface);
 
     /* Start WAI */
-    if (wai_port == NULL || start_wai(wai_port, log_stream, config_ssl_cert, config_ssl_key) != 0) {
+    if (wai_port == NULL || start_wai(wai_port, log_stream, config_ssl_cert, config_ssl_key, hosts, hosts_len) != 0) {
         writelog(log_stream, "Failed to init WAI!");
     }
 
