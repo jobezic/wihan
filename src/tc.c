@@ -133,3 +133,37 @@ int unlimit_down_band(char *dev, char *ip) {
 
     return retcode;
 }
+
+int get_or_instance_bclass(bandclass_t bclasses[],
+                           int *bclasses_len,
+                           unsigned int bandwidth,
+                           char *iface,
+                           bandclass_t **bclass,
+                           int *registered) {
+    int i, classid, found = 0;
+    int ret = -1;
+
+    for (i = 0; i < *bclasses_len; i++) {
+        if (bclasses[i].kbps == bandwidth) {
+            found = 1;
+            *bclass = &bclasses[i];
+
+            ret = 0;
+            break;
+        }
+    }
+
+    if (found == 0) {
+        classid = ((*bclasses_len)+1)*10;
+
+        if (register_bclass(iface, classid, bandwidth, &bclasses[*bclasses_len]) == 0) {
+            *bclass = &bclasses[*bclasses_len];
+            (*bclasses_len)++;
+            *registered = 1;
+
+            ret = 0;
+        }
+    }
+
+    return ret;
+}

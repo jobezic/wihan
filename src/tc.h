@@ -31,6 +31,7 @@ typedef struct {
 int init_bandwidth_stack(char *);
 int deinit_bandwidth_stack(char *);
 int register_bclass(char *, int, unsigned int, bandclass_t *);
+int get_or_instance_bclass(bandclass_t [], int *, unsigned int, char *, bandclass_t **, int *);
 int unregister_bclass(char *, bandclass_t);
 int limit_down_band(char *, char *, bandclass_t *);
 int limit_up_band(char *, char *, unsigned int);
