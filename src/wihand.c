@@ -35,8 +35,8 @@
 #include <string.h>
 #include "../config.h"
 #include "wihand.h"
+#include "host.h"
 #include "utils.h"
-#include "iptables.h"
 #include "radius.h"
 #include "tc.h"
 #include "wai.h"
@@ -65,65 +65,6 @@ static FILE *log_stream = NULL;
 host_t hosts[65535];
 int hosts_len, loopcount = 1, bclass_len = 0;
 bandclass_t bclasses[65535];
-
-int get_host_by_ip(host_t hosts[], int hosts_len, char *ip, host_t **host) {
-    int i = 0;
-    host_t *target_host = NULL;
-
-    for (i = 0; i < hosts_len; i++) {
-        if (strcmp(hosts[i].ip, ip) == 0) {
-            target_host = &hosts[i];
-            *host = target_host;
-            break;
-        }
-    }
-
-    return target_host == NULL;
-}
-
-void write_hosts_list(host_t *hosts, int len) {
-    FILE *status_file = NULL;
-    char tbuff[20];
-    char ebuff[20];
-    int i;
-    struct tm *sTm;
-
-    status_file = fopen("/tmp/wihand.status", "w+");
-
-    fprintf(status_file, "MAC\t\t\tStatus\tIdle\tSession Start\t\tSession Stop\t\tTraffic In\tTraffic Out\tSession\n");
-    fprintf(status_file, "----------------------------------------------------------------------------------------------------------------------------------------\n");
-
-    for (i = 0; i < len; i++) {
-        strcpy(tbuff, "                   ");
-        strcpy(ebuff, "                   ");
-
-        if (hosts[i].start_time) {
-            sTm = gmtime (&hosts[i].start_time);
-            strftime (tbuff, sizeof(tbuff), "%Y-%m-%d %H:%M:%S", sTm);
-        }
-
-        if (hosts[i].stop_time) {
-            sTm = gmtime (&hosts[i].stop_time);
-            strftime (ebuff, sizeof(ebuff), "%Y-%m-%d %H:%M:%S", sTm);
-        }
-
-        if (hosts[i].traffic_in == 0 && hosts[i].traffic_out == 0) {
-            fprintf(status_file, "%s\t%c\t%d\t%s\t%s\n", hosts[i].mac, hosts[i].status, hosts[i].idle, tbuff, ebuff);
-        } else {
-            fprintf(status_file, "%s\t%c\t%d\t%s\t%s\t\t%lu\t\t%lu\t%s\n",
-                    hosts[i].mac,
-                    hosts[i].status,
-                    hosts[i].idle,
-                    tbuff,
-                    ebuff,
-                    hosts[i].traffic_in,
-                    hosts[i].traffic_out,
-                    hosts[i].session);
-        }
-    }
-
-    fclose(status_file);
-}
 
 /**
  * Read configuration from config file
@@ -219,35 +160,6 @@ int read_conf_file(int reload)
     return ret;
 }
 
-/**
- * This function tries to test config file
- */
-int test_conf_file(char *_conf_file_name)
-{
-    FILE *conf_file = NULL;
-    int ret = -1;
-
-    conf_file = fopen(_conf_file_name, "r");
-
-    if (conf_file == NULL) {
-        writelog(log_stream, "Can't read config file");
-        return EXIT_FAILURE;
-    }
-
-    ret = fscanf(conf_file, "%d", &delay);
-
-    if (ret <= 0) {
-        writelog(log_stream, "Wrong config file");
-    }
-
-    fclose(conf_file);
-
-    if (ret > 0)
-        return EXIT_SUCCESS;
-    else
-        return EXIT_FAILURE;
-}
-
 int print_status()
 {
     FILE *status_file = NULL;
@@ -273,104 +185,6 @@ int print_status()
         return EXIT_FAILURE;
 
 }
-
-int iptables_man(const int action, char* mac, char* data) {
-    int retcode;
-
-    switch(action) {
-        case __OUTGOING_FLUSH:
-            retcode = flush_chain("mangle", "wlan0_Outgoing");
-
-            break;
-        case __TRAFFIC_IN_FLUSH:
-            retcode = flush_chain("filter", "wlan0_Traffic_In");
-
-            break;
-        case __TRAFFIC_OUT_FLUSH:
-            retcode = flush_chain("filter", "wlan0_Traffic_Out");
-
-            break;
-        case __OUTGOING_ADD:
-            retcode = add_mac_rule_to_chain("mangle", "wlan0_Outgoing", mac, "MARK --set-mark 2");
-
-            break;
-        case __FILTER_GLOBAL_ADD:
-            retcode = add_dest_rule("filter", "wlan0_Global", mac, "ACCEPT");
-
-            break;
-        case __NAT_GLOBAL_ADD:
-            retcode = add_dest_rule("nat", "wlan0_Global", mac, "ACCEPT");
-
-            break;
-        case __TRAFFIC_IN_ADD:
-            retcode = add_mac_rule_to_chain("filter", "wlan0_Traffic_In", mac, "ACCEPT");
-
-            break;
-        case __TRAFFIC_OUT_ADD:
-            retcode = add_mac_rule_to_chain("filter", "wlan0_Traffic_Out", mac, "ACCEPT");
-
-            break;
-        case __CHECK_AUTH:
-            retcode = check_chain_rule("mangle", "wlan0_Outgoing", mac);
-
-            break;
-        case __READ_TRAFFIC_IN:
-            retcode = read_chain_bytes("filter", "wlan0_Traffic_In", mac, data);
-
-            break;
-        case __READ_TRAFFIC_OUT:
-            retcode = read_chain_bytes("filter", "wlan0_Traffic_Out", mac, data);
-
-            break;
-        case __REMOVE_HOST:
-            retcode = remove_rule_from_chain("mangle", "wlan0_Outgoing", mac)
-                    || remove_rule_from_chain("filter", "wlan0_Traffic_In", mac)
-                    || remove_rule_from_chain("filter", "wlan0_Traffic_Out", mac);
-            break;
-    }
-
-    return retcode;
-}
-
-unsigned long read_traffic_data(char *mac, const int inout) {
-    unsigned long res = 0;
-    int ret;
-    char bytes[64];
-
-    ret = iptables_man(inout, mac, bytes);
-
-    if (ret == 0) {
-        if (strcmp(bytes, "") != 0) {
-            res = atol(bytes);
-        }
-    }
-
-    return res;
-}
-
-int authorize_host(char *mac)
-{
-    int ret, ret_tia, ret_toa;
-
-    ret = iptables_man(__OUTGOING_ADD, mac, NULL);
-    ret_tia = iptables_man(__TRAFFIC_IN_ADD, mac, NULL);
-    ret_toa = iptables_man(__TRAFFIC_OUT_ADD, mac, NULL);
-
-    if (ret == 0 && ret_tia == 0 && ret_toa == 0)
-        return EXIT_SUCCESS;
-    else
-        return EXIT_FAILURE;
-}
-
-int check_authorized_host(char *mac)
-{
-    int ret;
-
-    ret = iptables_man(__CHECK_AUTH, mac, NULL);
-
-    return ret;
-}
-
 
 /**
  * Callback function for handling signals.
@@ -524,7 +338,6 @@ void print_help(void)
     printf("  Options:\n");
     printf("   -h --help                 Print this help\n");
     printf("   -c --conf_file filename   Read configuration from the file\n");
-/*    printf("   -t --test_conf filename   Test configuration file\n"); */
 /*    printf("   -l --log_file  filename   Write logs to the file\n");*/
     printf("   -f --foreground           Run in foreground\n");
     printf("   -p --pid_file  filename   PID file used by the daemon\n");
@@ -564,87 +377,11 @@ int read_arp(host_t *hosts, char *iface) {
     return i;
 }
 
-int update_hosts(host_t *hosts, int hosts_len, host_t *arp_cache, int arp_cache_len) {
-    int i, h, found;
-    int new_hosts_len = hosts_len;
-
-    /* Check for new hosts */
-    for (i = 0; i < arp_cache_len; i++) {
-
-        /* Check if host exists in the daemon list */
-        found = 0;
-        for (h = 0; h < new_hosts_len; h++) {
-            if (strcmp(hosts[h].mac, arp_cache[i].mac) == 0) {
-                hosts[h].staled = arp_cache[i].staled;
-                found = 1;
-                break;
-            }
-        }
-
-        if (!found) {
-            /* New host found */
-            strcpy(hosts[new_hosts_len].ip, arp_cache[i].ip);
-            strcpy(hosts[new_hosts_len].mac, arp_cache[i].mac);
-            hosts[new_hosts_len].staled = arp_cache[i].staled;
-
-            new_hosts_len++;
-        }
-    }
-
-    return new_hosts_len;
-}
-
-int dnat_host(host_t *host) {
-    int ret;
-
-    /* remove host from chains */
-    ret = iptables_man(__REMOVE_HOST, host->mac, NULL);
-
-    /* update host status */
-    if (ret == 0) {
-        host->status = 'D';
-        host->stop_time = time(0);
-    }
-
-    return ret;
-}
-
-void start_host(host_t *host) {
-    host->status = 'A';
-    host->start_time = time(0);
-    host->stop_time = NULL;
-    host->idle = 0;
-}
-
-void set_host_replies(host_t *host, reply_t *reply) {
-    host->idle_timeout = (reply->idle > 0 ? reply->idle : __DEFAULT_IDLE);
-    host->session_timeout = reply->session_timeout;
-    host->b_up = reply->b_up;
-    host->b_down = reply->b_down;
-    host->max_traffic_in = reply->traffic_in;
-    host->max_traffic_out = reply->traffic_out;
-    host->max_traffic = reply->traffic_total;
-}
-
-int auth_host(char *mac, char *mode, char* nasid, char *radhost, char* radport, char *radsecret, reply_t *reply) {
-    int ret = 0;
-
-    if (strcmp(mode, "radius") == 0) {
-        ret = radclient(mac, nasid, radhost, radport, radsecret, reply);
-    }
-    else if (strcmp(mode, "rex") == 0) {
-        //TODO
-    }
-
-    return ret;
-}
-
 /* Main function */
 int main(int argc, char *argv[])
 {
     static struct option long_options[] = {
         {"conf_file", required_argument, 0, 'c'},
-        {"test_conf", required_argument, 0, 't'},
         {"status", no_argument, 0, 's'},
         {"help", no_argument, 0, 'h'},
         {"foreground", no_argument, 0, 'f'},
@@ -672,7 +409,7 @@ int main(int argc, char *argv[])
     srand(time(NULL));
 
     /* Try to process all command line arguments */
-    while ((value = getopt_long(argc, argv, "c:l:t:p:a:fsh", long_options, &option_index)) != -1) {
+    while ((value = getopt_long(argc, argv, "c:l:p:a:fsh", long_options, &option_index)) != -1) {
         switch (value) {
             case 'c':
                 conf_file_name = strdup(optarg);
@@ -680,8 +417,6 @@ int main(int argc, char *argv[])
             case 'p':
                 pid_file_name = strdup(optarg);
                 break;
-            case 't':
-                return test_conf_file(optarg);
             case 'a':
                 return authorize_host(optarg);
             case 's':

@@ -28,6 +28,7 @@ wihand_LDADD += -lssl -lcrypto
 endif
 
 wihand_SOURCES = \
+	src/host.c \
 	src/iptables.c \
 	src/radius.c \
 	src/utils.c \

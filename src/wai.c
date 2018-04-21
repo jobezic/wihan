@@ -25,7 +25,7 @@
 #include "../config.h"
 #include "../mongoose/mongoose.h"
 #include "utils.h"
-#include "wihand.h"
+#include "host.h"
 
 struct thread_data {
    int loop;
