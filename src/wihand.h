@@ -40,8 +40,8 @@ typedef struct {
     char *nasidentifier;
     int config_lma;
     char *wai_port;
-    char *config_ssl_cert;
-    char *config_ssl_key;
+    char *ssl_cert;
+    char *ssl_key;
 } config_t;
 
 #endif

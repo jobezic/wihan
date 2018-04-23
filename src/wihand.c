@@ -66,8 +66,8 @@ static config_t __config = {
     .nasidentifier = NULL,
     .config_lma = 0,
     .wai_port = NULL,
-    .config_ssl_cert = NULL,
-    .config_ssl_key = NULL
+    .ssl_cert = NULL,
+    .ssl_key = NULL
 };
 
 /**
@@ -138,10 +138,10 @@ int read_conf_file(config_t *config, int reload)
                 config->wai_port = strdup(val);
             }
             else if (strcmp(param, "sslcert") == 0) {
-                config->config_ssl_cert = strdup(val);
+                config->ssl_cert = strdup(val);
             }
             else if (strcmp(param, "sslkey") == 0) {
-                config->config_ssl_key = strdup(val);
+                config->ssl_key = strdup(val);
             }
         }
     }
@@ -525,7 +525,7 @@ int main(int argc, char *argv[])
     hosts_len = read_arp(hosts, __config.iface);
 
     /* Start WAI */
-    if (__config.wai_port == NULL || start_wai(__config.wai_port, log_stream, __config.config_ssl_cert, __config.config_ssl_key, hosts, hosts_len) != 0) {
+    if (__config.wai_port == NULL || start_wai(__config.wai_port, log_stream, __config.ssl_cert, __config.ssl_key, hosts, hosts_len) != 0) {
         writelog(log_stream, "Failed to init WAI!");
     }
 
@@ -809,8 +809,8 @@ printf("exit wai\n");
     if (__config.radius_secret != NULL) free(__config.radius_secret);
     if (__config.nasidentifier != NULL) free(__config.nasidentifier);
     if (__config.wai_port != NULL) free(__config.wai_port);
-    if (__config.config_ssl_cert != NULL) free(__config.config_ssl_cert);
-    if (__config.config_ssl_key != NULL) free(__config.config_ssl_key);
+    if (__config.ssl_cert != NULL) free(__config.ssl_cert);
+    if (__config.ssl_key != NULL) free(__config.ssl_key);
 
     return EXIT_SUCCESS;
 }
