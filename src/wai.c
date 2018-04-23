@@ -33,20 +33,36 @@ struct thread_data {
    FILE *log_stream;
    host_t *hosts;
    int hosts_len;
-#if HAVE_LIBSSL
-   const char *sslcert;
-   const char *sslkey;
-#endif
+   bandclass_t *bclasses;
+   int bclasses_len;
+   const config_t *config;
 };
 
 struct thread_data intercom_data;
 
 static struct mg_serve_http_opts s_http_server_opts;
 
-static void handle_login(struct mg_connection *nc, struct http_message *hm, host_t *hosts, const int hosts_len) {
+static void handle_login(struct mg_connection *nc,
+                         struct http_message *hm,
+                         host_t *hosts,
+                         const int hosts_len,
+                         bandclass_t bclasses[],
+                         int bclasses_len,
+                         FILE *log_stream,
+                         char *iface,
+                         char *aaa_method,
+                         char *nasidentifier,
+                         char *called_station,
+                         char *radius_host,
+                         char *radius_authport,
+                         char *radius_acctport,
+                         char *radius_secret) {
     char src_addr[32];
     char username[128], password[128], userurl[255];
+    char logstr[255];
+    int retcode = 0;
     host_t *host;
+    reply_t reply;
 
     mg_sock_addr_to_str(&nc->sa, src_addr, sizeof(src_addr), MG_SOCK_STRINGIFY_IP);
 
@@ -55,7 +71,25 @@ static void handle_login(struct mg_connection *nc, struct http_message *hm, host
     mg_get_http_var(&hm->query_string, "userurl", userurl, sizeof(userurl));
 
     if (get_host_by_ip(hosts, hosts_len, src_addr, &host) == 0) {
-        //TODO: try auth with username, password
+        if (!host->status || host->status == 'D') {
+            //TODO: try auth with username, password
+            snprintf(logstr, sizeof logstr, "Sending auth request for %s", host->mac);
+            writelog(log_stream, logstr);
+
+            auth_host(host,
+                      bclasses,
+                      bclasses_len,
+                      iface,
+                      aaa_method,
+                      nasidentifier,
+                      called_station,
+                      radius_host,
+                      radius_authport,
+                      radius_acctport,
+                      radius_secret,
+                      log_stream);
+        }
+
     }
 
     mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Type: text/plain\r\n\r\n");
@@ -86,11 +120,9 @@ static void handle_status(struct mg_connection *nc, struct http_message *hm, hos
 static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
     struct http_message *hm = (struct http_message *) ev_data;
     char addr[32];
-    host_t *hosts;
-    int hosts_len;
+    struct thread_data *t_data;
 
-    hosts = (host_t *) ((struct thread_data *)nc->user_data)->hosts;
-    hosts_len = ((struct thread_data *)nc->user_data)->hosts_len;
+    t_data = (struct thread_data *)nc->user_data;
 
     switch (ev) {
         case MG_EV_HTTP_REQUEST:
@@ -102,10 +134,24 @@ static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
                 nc->flags |= MG_F_SEND_AND_CLOSE;
             }
             else if (mg_vcmp(&hm->uri, "/status") == 0) {
-                handle_status(nc, hm, hosts, hosts_len);
+                handle_status(nc, hm, t_data->hosts, t_data->hosts_len);
             }
             else if (mg_vcmp(&hm->uri, "/login") == 0) {
-                handle_login(nc, hm, hosts, hosts_len);
+                handle_login(nc,
+                             hm,
+                             t_data->hosts,
+                             t_data->hosts_len,
+                             t_data->bclasses,
+                             t_data->bclasses_len,
+                             t_data->log_stream,
+                             t_data->config->iface,
+                             t_data->config->aaa_method,
+                             t_data->config->nasidentifier,
+                             t_data->config->called_station,
+                             t_data->config->radius_host,
+                             t_data->config->radius_authport,
+                             t_data->config->radius_acctport,
+                             t_data->config->radius_secret);
             }
 
             break;
@@ -126,8 +172,8 @@ void *WAI(void *thread_arg) {
     mg_mgr_init(&mgr, NULL);
     memset(&bind_opts, 0, sizeof(bind_opts));
 #if HAVE_LIBSSL
-    bind_opts.ssl_cert = my_data->sslcert;
-    bind_opts.ssl_key = my_data->sslkey;
+    bind_opts.ssl_cert = my_data->config->ssl_cert;
+    bind_opts.ssl_key = my_data->config->ssl_key;
 #endif
     bind_opts.user_data = my_data;
     nc = mg_bind_opt(&mgr, my_data->wai_port, ev_handler, bind_opts);
@@ -158,10 +204,11 @@ void *WAI(void *thread_arg) {
 
 int start_wai(const char *port,
               FILE *log_stream,
-              const char *sslcert,
-              const char *sslkey,
+              const config_t *config,
               host_t hosts[],
-              const int hosts_len) {
+              const int hosts_len,
+              bandclass_t bclasses[],
+              const int bclass_len) {
     pthread_t thread;
     int rc;
 
@@ -170,10 +217,10 @@ int start_wai(const char *port,
     intercom_data.log_stream = log_stream;
     intercom_data.hosts = hosts;
     intercom_data.hosts_len = hosts_len;
-#if HAVE_LIBSSL
-    intercom_data.sslcert = sslcert;
-    intercom_data.sslkey = sslkey;
-#endif
+    intercom_data.bclasses = bclasses;
+    intercom_data.bclasses_len = bclass_len;
+    intercom_data.config = config;
+
     rc = pthread_create(&thread, NULL, WAI, (void *) &intercom_data);
 
     return rc;

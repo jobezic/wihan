@@ -29,6 +29,7 @@
 typedef struct {
     char *iface;
     char *iface_network_ip;
+    char *called_station;
     char *wan;
     char *allowed_garden;
     char *logfile;

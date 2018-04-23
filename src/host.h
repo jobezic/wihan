@@ -25,6 +25,7 @@
 
 #include <time.h>
 #include "radius.h"
+#include "tc.h"
 
 #define __DEFAULT_IDLE  60
 #define __OUTGOING_FLUSH 100
@@ -70,7 +71,7 @@ int update_hosts(host_t *, int, host_t *, int);
 int dnat_host(host_t *);
 void start_host(host_t *);
 void set_host_replies(host_t *, reply_t *);
-int auth_host(char *, char *, char *, char *, char *, char *, reply_t *);
+int auth_host(host_t *, bandclass_t [], int, char *, char *, char *, char *, char *, char *, char *, char *, FILE *);
 int iptables_man(const int, char *, char *);
 unsigned long read_traffic_data(char *, const int);
 

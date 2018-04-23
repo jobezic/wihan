@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include "host.h"
 #include "iptables.h"
+#include "utils.h"
 
 int get_host_by_ip(host_t hosts[], int hosts_len, char *ip, host_t **host) {
     int i = 0;
@@ -170,11 +171,95 @@ void set_host_replies(host_t *host, reply_t *reply) {
     host->max_traffic = reply->traffic_total;
 }
 
-int auth_host(char *mac, char *mode, char* nasid, char *radhost, char* radport, char *radsecret, reply_t *reply) {
+int auth_host(host_t *host,
+              bandclass_t bclasses[],
+              int bclass_len,
+              char *iface,
+              char *mode,
+              char *nasid,
+              char *called_station,
+              char *radhost,
+              char *radauthport,
+              char *radacctport,
+              char *radsecret,
+              FILE *log_stream)
+{
     int ret = 0;
+    reply_t reply;
+    bandclass_t *dbclass;
+    int registered = 0;
+    char logstr[255];
 
+    /* Try to auth the host */
     if (strcmp(mode, "radius") == 0) {
-        ret = radclient(mac, nasid, radhost, radport, radsecret, reply);
+        ret = radclient(host->mac, nasid, radhost, radauthport, radsecret, &reply);
+    }
+
+    if (ret == 0) {
+        snprintf(logstr, sizeof logstr, "Auth request %s for %s", (ret == 0) ? "AUTHORIZED" : "REJECTED", host->mac);
+        writelog(log_stream, logstr);
+
+        /* set host status on auth response outcome */
+        if (iptables_man(__OUTGOING_ADD, host->mac, NULL) == 0
+                && iptables_man(__TRAFFIC_IN_ADD, host->mac, NULL) == 0
+                && iptables_man(__TRAFFIC_OUT_ADD, host->mac, NULL) == 0)
+        {
+            start_host(host);
+            snprintf(logstr, sizeof logstr, "Authorize host %s", host->mac);
+            writelog(log_stream, logstr);
+
+            /* set host radius params */
+            set_host_replies(host, &reply);
+
+            /* Set bandwidth */
+            if (reply.b_up > 0) {
+                if (limit_up_band(iface, host->ip, reply.b_up) == 0) {
+                    snprintf(logstr, sizeof logstr, "Set up bandwidth limit to %d kbps for host %s", reply.b_up, host->mac);
+                    writelog(log_stream, logstr);
+                } else {
+                    snprintf(logstr, sizeof logstr, "Error in setting up bandwidth limit for host %s", host->mac);
+                    writelog(log_stream, logstr);
+                }
+            }
+
+            if (reply.b_down > 0) {
+                if (get_or_instance_bclass(bclasses, &bclass_len, reply.b_down, iface, &dbclass, &registered) == 0) {
+                    if (registered == 1) {
+                        snprintf(logstr, sizeof logstr, "Register new down bandwidth class %d", dbclass->classid);
+                        writelog(log_stream, logstr);
+                    }
+
+                    if (limit_down_band(iface, host->ip, dbclass) == 0) {
+                        snprintf(logstr, sizeof logstr, "Set down bandwidth limit to %d kbps for host %s", reply.b_down, host->mac);
+                        writelog(log_stream, logstr);
+                    } else {
+                        snprintf(logstr, sizeof logstr, "Error in set down bandwidth limit for host %s", host->mac);
+                        writelog(log_stream, logstr);
+                    }
+                } else {
+                    snprintf(logstr, sizeof logstr, "Error in registering new down bandwidth class %d", dbclass->classid);
+                    writelog(log_stream, logstr);
+                }
+            }
+
+            /* execute start acct */
+            ret = radacct_start(host->mac,
+                                host->mac,
+                                called_station,
+                                host->session,
+                                nasid,
+                                radhost,
+                                radacctport,
+                                radsecret);
+
+            if (ret != 0) {
+                snprintf(logstr, sizeof logstr, "Fail to execute radacct start for host %s", host->mac);
+                writelog(log_stream, logstr);
+            }
+        } else {
+            host->status = 'D';
+        }
+
     }
 
     return ret;

@@ -395,21 +395,19 @@ int main(int argc, char *argv[])
         {"authorize", required_argument, 0, 'a'},
         {NULL, 0, 0, 0}
     };
+
     int value, option_index = 0;
     int start_daemonized = 1;
 
     char called_station[20];
     host_t arp_cache[1024]; /* FIXME: allocate dynamically */
-    int arp_len, i, retcode, ret, bclass_i, bclass_found, classid;
+    int arp_len, i, retcode, ret;
     char logstr[255];
     char radcmd[255];
     unsigned long traffic_in, traffic_out;
     char* pt;
-    reply_t reply;
     time_t curtime;
     char *dnat_reason;
-    bandclass_t *dbclass;
-    int registered = 0;
 
     /* init random seed */
     srand(time(NULL));
@@ -481,6 +479,7 @@ int main(int argc, char *argv[])
     get_mac(__config.iface, called_station);
     uppercase(called_station);
     replacechar(called_station, ':', '-');
+    __config.called_station = strdup(called_station);
 
     /* set iptables rules */
     snprintf(radcmd, sizeof radcmd, "/etc/wihan/setrules.sh %s %s %s", __config.iface, __config.iface_network_ip, __config.wan);
@@ -525,7 +524,9 @@ int main(int argc, char *argv[])
     hosts_len = read_arp(hosts, __config.iface);
 
     /* Start WAI */
-    if (__config.wai_port == NULL || start_wai(__config.wai_port, log_stream, __config.ssl_cert, __config.ssl_key, hosts, hosts_len) != 0) {
+    if (__config.wai_port == NULL ||
+        start_wai(__config.wai_port, log_stream, &__config, hosts, hosts_len, bclasses, bclass_len) != 0)
+    {
         writelog(log_stream, "Failed to init WAI!");
     }
 
@@ -542,83 +543,25 @@ int main(int argc, char *argv[])
         /* Init mac list */
         for (i = 0; i < hosts_len; i++) {
             /* if status is not set make an auth request */
-            if ((!hosts[i].status || (hosts[i].status == 'D' && hosts[i].idle > hosts[i].idle_timeout)) && !hosts[i].staled) {
+            if (!hosts[i].status && !hosts[i].staled) {
                 /* send auth request for host */
                 snprintf(logstr, sizeof logstr, "Sending auth request for %s", hosts[i].mac);
                 writelog(log_stream, logstr);
 
-                retcode = auth_host(hosts[i].mac,
-                                    __config.aaa_method,
-                                    __config.nasidentifier,
-                                    __config.radius_host,
-                                    __config.radius_authport,
-                                    __config.radius_secret,
-                                    &reply);
 
-                snprintf(logstr, sizeof logstr, "Auth request %s for %s", (retcode == 0) ? "AUTHORIZED" : "REJECTED", hosts[i].mac);
-                writelog(log_stream, logstr);
-
-                /* set host status on auth response outcome */
-                if (retcode == 0
-                        && iptables_man(__OUTGOING_ADD, hosts[i].mac, NULL) == 0
-                        && iptables_man(__TRAFFIC_IN_ADD, hosts[i].mac, NULL) == 0
-                        && iptables_man(__TRAFFIC_OUT_ADD, hosts[i].mac, NULL) == 0)
-                {
-                    start_host(&hosts[i]);
-                    snprintf(logstr, sizeof logstr, "Authorize host %s", hosts[i].mac);
-                    writelog(log_stream, logstr);
-
-                    /* set host radius params */
-                    set_host_replies(&hosts[i], &reply);
-
-                    /* Set bandwidth */
-                    if (reply.b_up > 0) {
-                        if (limit_up_band(__config.iface, hosts[i].ip, reply.b_up) == 0) {
-                            snprintf(logstr, sizeof logstr, "Set up bandwidth limit to %d kbps for host %s", reply.b_up, hosts[i].mac);
-                            writelog(log_stream, logstr);
-                        } else {
-                            snprintf(logstr, sizeof logstr, "Error in setting up bandwidth limit for host %s", hosts[i].mac);
-                            writelog(log_stream, logstr);
-                        }
-                    }
-
-                    if (reply.b_down > 0) {
-                        if (get_or_instance_bclass(bclasses, &bclass_len, reply.b_down, __config.iface, &dbclass, &registered) == 0) {
-                            if (registered == 1) {
-                                snprintf(logstr, sizeof logstr, "Register new down bandwidth class %d", dbclass->classid);
-                                writelog(log_stream, logstr);
-                            }
-
-                            if (limit_down_band(__config.iface, hosts[i].ip, &bclasses[bclass_i]) == 0) {
-                                snprintf(logstr, sizeof logstr, "Set down bandwidth limit to %d kbps for host %s", reply.b_down, hosts[i].mac);
-                                writelog(log_stream, logstr);
-                            } else {
-                                snprintf(logstr, sizeof logstr, "Error in set down bandwidth limit for host %s", hosts[i].mac);
-                                writelog(log_stream, logstr);
-                            }
-                        } else {
-                            snprintf(logstr, sizeof logstr, "Error in registering new down bandwidth class %d", dbclass->classid);
-                            writelog(log_stream, logstr);
-                        }
-                    }
-
-                    /* execute start acct */
-                    ret = radacct_start(hosts[i].mac,
-                                        hosts[i].mac,
-                                        called_station,
-                                        hosts[i].session,
-                                        __config.nasidentifier,
-                                        __config.radius_host,
-                                        __config.radius_acctport,
-                                        __config.radius_secret);
-
-                    if (ret != 0) {
-                        snprintf(logstr, sizeof logstr, "Fail to execute radacct start for host %s", hosts[i].mac);
-                        writelog(log_stream, logstr);
-                    }
-                } else {
-                    hosts[i].status = 'D';
-                }
+                /* Standard auth procedure */
+                auth_host(&hosts[i],
+                          bclasses,
+                          bclass_len,
+                          __config.iface,
+                          __config.aaa_method,
+                          __config.nasidentifier,
+                          __config.called_station,
+                          __config.radius_host,
+                          __config.radius_authport,
+                          __config.radius_acctport,
+                          __config.radius_secret,
+                          log_stream);
             }
 
             /* check for iptables entries for the host (MANUAL AUTH) */
@@ -632,7 +575,7 @@ int main(int argc, char *argv[])
                 /* execute start acct */
                 ret = radacct_start(hosts[i].mac,
                                     hosts[i].mac,
-                                    called_station,
+                                    __config.called_station,
                                     hosts[i].session,
                                     __config.nasidentifier,
                                     __config.radius_host,
@@ -799,6 +742,7 @@ printf("exit wai\n");
     if (pid_file_name != NULL) free(pid_file_name);
     if (__config.iface != NULL) free(__config.iface);
     if (__config.iface_network_ip != NULL) free(__config.iface_network_ip);
+    if (__config.called_station != NULL) free(__config.called_station);
     if (__config.wan != NULL) free(__config.wan);
     if (__config.logfile != NULL) free(__config.logfile);
     if (__config.allowed_garden != NULL) free(__config.allowed_garden);
