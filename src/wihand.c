@@ -47,29 +47,33 @@ static char *conf_file_name = NULL;
 static char *pid_file_name = NULL;
 static int pid_fd = -1;
 static char *app_name = "wihand";
-static char *iface = NULL;
-static char *iface_network_ip = NULL;
-static char *wan = NULL;
-static char *logfile = NULL;
-static char *allowed_garden = NULL;
-static char *aaa_method = NULL;
-static char *radius_host = NULL;
-static char *radius_authport = NULL;
-static char *radius_acctport = NULL;
-static char *radius_secret = NULL;
-static char *nasidentifier = NULL;
-static char *wai_port = NULL;
-static char *config_ssl_cert = NULL;
-static char *config_ssl_key = NULL;
 static FILE *log_stream = NULL;
 host_t hosts[65535];
 int hosts_len, loopcount = 1, bclass_len = 0;
 bandclass_t bclasses[65535];
 
+static config_t __config = {
+    .iface = NULL,
+    .iface_network_ip = NULL,
+    .wan = NULL,
+    .allowed_garden = NULL,
+    .logfile = NULL,
+    .aaa_method = NULL,
+    .radius_host = NULL,
+    .radius_authport = NULL,
+    .radius_acctport = NULL,
+    .radius_secret = NULL,
+    .nasidentifier = NULL,
+    .config_lma = 0,
+    .wai_port = NULL,
+    .config_ssl_cert = NULL,
+    .config_ssl_key = NULL
+};
+
 /**
  * Read configuration from config file
  */
-int read_conf_file(int reload)
+int read_conf_file(config_t *config, int reload)
 {
     FILE *conf_file = NULL;
     int ret = -1;
@@ -95,47 +99,49 @@ int read_conf_file(int reload)
             sscanf(line, "%s %s\n", param, val);
 
             if (strcmp(param, "iface") == 0) {
-                iface = strdup(val);
+                config->iface = strdup(val);
             }
             else if (strcmp(param, "net") == 0) {
-                iface_network_ip = strdup(val);
+                config->iface_network_ip = strdup(val);
             }
             else if (strcmp(param, "wan") == 0) {
-                wan = strdup(val);
+                config->wan = strdup(val);
             }
             else if (strcmp(param, "allow") == 0) {
-                allowed_garden = strdup(val);
+                config->allowed_garden = strdup(val);
             }
             else if (strcmp(param, "log") == 0) {
-                logfile = strdup(val);
+                config->logfile = strdup(val);
             }
             else if (strcmp(param, "aaa_method") == 0) {
-                aaa_method = strdup(val);
+                config->aaa_method = strdup(val);
             }
             else if (strcmp(param, "radius") == 0) {
-                radius_host = strdup(val);
+                config->radius_host = strdup(val);
             }
             else if (strcmp(param, "radauthport") == 0) {
-                radius_authport = strdup(val);
+                config->radius_authport = strdup(val);
             }
             else if (strcmp(param, "radacctport") == 0) {
-                radius_acctport = strdup(val);
+                config->radius_acctport = strdup(val);
             }
             else if (strcmp(param, "radsecret") == 0) {
-                radius_secret = strdup(val);
+                config->radius_secret = strdup(val);
             }
             else if (strcmp(param, "nasidentifier") == 0) {
-                nasidentifier = strdup(val);
+                config->nasidentifier = strdup(val);
             }
+            else if (strcmp(param, "lma") == 0) {
+                config->config_lma = strcmp(val, "yes") == 0;
             }
             else if (strcmp(param, "wai_port") == 0) {
-                wai_port = strdup(val);
+                config->wai_port = strdup(val);
             }
             else if (strcmp(param, "sslcert") == 0) {
-                config_ssl_cert = strdup(val);
+                config->config_ssl_cert = strdup(val);
             }
             else if (strcmp(param, "sslkey") == 0) {
-                config_ssl_key = strdup(val);
+                config->config_ssl_key = strdup(val);
             }
         }
     }
@@ -200,20 +206,20 @@ void handle_signal(int sig)
         /* Unset fw rules TODO */
 
         /* Deinit bandwidth stack */
-        if (iface) {
+        if (__config.iface) {
             for (i = 0; i < hosts_len; i++) {
                 if (hosts[i].b_up > 0) {
                     snprintf(logstr, sizeof logstr, "Unlimit up bandwidth for host %s", hosts[i].mac);
                     writelog(log_stream, logstr);
 
-                    unlimit_up_band(iface, hosts[i].ip);
+                    unlimit_up_band(__config.iface, hosts[i].ip);
                 }
 
                 if (hosts[i].b_down > 0) {
                     snprintf(logstr, sizeof logstr, "Unlimit down bandwidth for host %s", hosts[i].mac);
                     writelog(log_stream, logstr);
 
-                    unlimit_down_band(iface, hosts[i].ip);
+                    unlimit_down_band(__config.iface, hosts[i].ip);
                 }
             }
 
@@ -222,12 +228,12 @@ void handle_signal(int sig)
                     snprintf(logstr, sizeof logstr, "Unregister bandwidth class %d", bclasses[i].classid);
                     writelog(log_stream, logstr);
 
-                    unregister_bclass(iface, bclasses[i]);
+                    unregister_bclass(__config.iface, bclasses[i]);
                 }
             }
 
             writelog(log_stream, "Deinit bandwidth stack");
-            deinit_bandwidth_stack(iface);
+            deinit_bandwidth_stack(__config.iface);
         }
 
 
@@ -452,14 +458,14 @@ int main(int argc, char *argv[])
     signal(SIGUSR1, handle_signal);
 
     /* Read configuration from config file */
-    read_conf_file(0);
+    read_conf_file(&__config, 0);
 
     /* Try to open log file to this daemon */
-    if (logfile != NULL) {
-        log_stream = fopen(logfile, "a+");
+    if (__config.logfile != NULL) {
+        log_stream = fopen(__config.logfile, "a+");
         if (log_stream == NULL) {
             syslog(LOG_ERR, "Can not open log file: %s, error: %s",
-                logfile, strerror(errno));
+                __config.logfile, strerror(errno));
             log_stream = stdout;
         }
     } else {
@@ -470,14 +476,14 @@ int main(int argc, char *argv[])
     running = 1;
 
     /* get <interface> mac address for calling station */
-    snprintf(logstr, sizeof logstr, "Using interface %s", iface);
+    snprintf(logstr, sizeof logstr, "Using interface %s", __config.iface);
     writelog(log_stream, logstr);
-    get_mac(iface, called_station);
+    get_mac(__config.iface, called_station);
     uppercase(called_station);
     replacechar(called_station, ':', '-');
 
     /* set iptables rules */
-    snprintf(radcmd, sizeof radcmd, "/etc/wihan/setrules.sh %s %s %s", iface, iface_network_ip, wan);
+    snprintf(radcmd, sizeof radcmd, "/etc/wihan/setrules.sh %s %s %s", __config.iface, __config.iface_network_ip, __config.wan);
     ret = system(radcmd);
     if (ret != 0) {
         snprintf(logstr, sizeof logstr, "Fail to set init firewall rules");
@@ -485,7 +491,7 @@ int main(int argc, char *argv[])
     }
 
     /* Set allowed garden */
-    pt = strtok (allowed_garden, ",");
+    pt = strtok (__config.allowed_garden, ",");
     while (pt != NULL) {
         if (iptables_man(__FILTER_GLOBAL_ADD, pt, NULL) == 0 && iptables_man(__NAT_GLOBAL_ADD, pt, NULL) == 0) {
             snprintf(logstr, sizeof logstr, "Add %s to allowed garden", pt);
@@ -509,17 +515,17 @@ int main(int argc, char *argv[])
     }
 
     /* init bandwidth stack */
-    if (init_bandwidth_stack(iface) == 0) {
+    if (init_bandwidth_stack(__config.iface) == 0) {
         writelog(log_stream, "Init bandwidth stack");
     } else {
         writelog(log_stream, "Failed to init bandwidth stack!");
     }
 
     /* Read arp list */
-    hosts_len = read_arp(hosts, iface);
+    hosts_len = read_arp(hosts, __config.iface);
 
     /* Start WAI */
-    if (wai_port == NULL || start_wai(wai_port, log_stream, config_ssl_cert, config_ssl_key, hosts, hosts_len) != 0) {
+    if (__config.wai_port == NULL || start_wai(__config.wai_port, log_stream, __config.config_ssl_cert, __config.config_ssl_key, hosts, hosts_len) != 0) {
         writelog(log_stream, "Failed to init WAI!");
     }
 
@@ -528,7 +534,7 @@ int main(int argc, char *argv[])
         /* EP */
 
         /* Read arp cache */
-        arp_len = read_arp(arp_cache, iface);
+        arp_len = read_arp(arp_cache, __config.iface);
 
         /* Update hosts list */
         hosts_len = update_hosts(hosts, hosts_len, arp_cache, arp_len);
@@ -542,11 +548,11 @@ int main(int argc, char *argv[])
                 writelog(log_stream, logstr);
 
                 retcode = auth_host(hosts[i].mac,
-                                    aaa_method,
-                                    nasidentifier,
-                                    radius_host,
-                                    radius_authport,
-                                    radius_secret,
+                                    __config.aaa_method,
+                                    __config.nasidentifier,
+                                    __config.radius_host,
+                                    __config.radius_authport,
+                                    __config.radius_secret,
                                     &reply);
 
                 snprintf(logstr, sizeof logstr, "Auth request %s for %s", (retcode == 0) ? "AUTHORIZED" : "REJECTED", hosts[i].mac);
@@ -567,7 +573,7 @@ int main(int argc, char *argv[])
 
                     /* Set bandwidth */
                     if (reply.b_up > 0) {
-                        if (limit_up_band(iface, hosts[i].ip, reply.b_up) == 0) {
+                        if (limit_up_band(__config.iface, hosts[i].ip, reply.b_up) == 0) {
                             snprintf(logstr, sizeof logstr, "Set up bandwidth limit to %d kbps for host %s", reply.b_up, hosts[i].mac);
                             writelog(log_stream, logstr);
                         } else {
@@ -577,13 +583,13 @@ int main(int argc, char *argv[])
                     }
 
                     if (reply.b_down > 0) {
-                        if (get_or_instance_bclass(bclasses, &bclass_len, reply.b_down, iface, &dbclass, &registered) == 0) {
+                        if (get_or_instance_bclass(bclasses, &bclass_len, reply.b_down, __config.iface, &dbclass, &registered) == 0) {
                             if (registered == 1) {
                                 snprintf(logstr, sizeof logstr, "Register new down bandwidth class %d", dbclass->classid);
                                 writelog(log_stream, logstr);
                             }
 
-                            if (limit_down_band(iface, hosts[i].ip, &bclasses[bclass_i]) == 0) {
+                            if (limit_down_band(__config.iface, hosts[i].ip, &bclasses[bclass_i]) == 0) {
                                 snprintf(logstr, sizeof logstr, "Set down bandwidth limit to %d kbps for host %s", reply.b_down, hosts[i].mac);
                                 writelog(log_stream, logstr);
                             } else {
@@ -601,10 +607,10 @@ int main(int argc, char *argv[])
                                         hosts[i].mac,
                                         called_station,
                                         hosts[i].session,
-                                        nasidentifier,
-                                        radius_host,
-                                        radius_acctport,
-                                        radius_secret);
+                                        __config.nasidentifier,
+                                        __config.radius_host,
+                                        __config.radius_acctport,
+                                        __config.radius_secret);
 
                     if (ret != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to execute radacct start for host %s", hosts[i].mac);
@@ -628,10 +634,10 @@ int main(int argc, char *argv[])
                                     hosts[i].mac,
                                     called_station,
                                     hosts[i].session,
-                                    nasidentifier,
-                                    radius_host,
-                                    radius_acctport,
-                                    radius_secret);
+                                    __config.nasidentifier,
+                                    __config.radius_host,
+                                    __config.radius_acctport,
+                                    __config.radius_secret);
 
                 if (ret != 0) {
                     snprintf(logstr, sizeof logstr, "Fail to execute radacct start for host %s", hosts[i].mac);
@@ -709,10 +715,10 @@ int main(int argc, char *argv[])
                             hosts[i].traffic_in,
                             hosts[i].traffic_out,
                             hosts[i].session,
-                            nasidentifier,
-                            radius_host,
-                            radius_acctport,
-                            radius_secret);
+                            __config.nasidentifier,
+                            __config.radius_host,
+                            __config.radius_acctport,
+                            __config.radius_secret);
 
                     if (ret != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to execute radacct stop for host %s", hosts[i].mac);
@@ -720,12 +726,12 @@ int main(int argc, char *argv[])
                     }
 
                     /* Remove bandwidth limits */
-                    if (hosts[i].b_up > 0 && unlimit_up_band(iface, hosts[i].ip) != 0) {
+                    if (hosts[i].b_up > 0 && unlimit_up_band(__config.iface, hosts[i].ip) != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to remove up bandwidth limit for host %s", hosts[i].mac);
                         writelog(log_stream, logstr);
                     }
 
-                    if (hosts[i].b_down > 0 && unlimit_down_band(iface, hosts[i].ip) != 0) {
+                    if (hosts[i].b_down > 0 && unlimit_down_band(__config.iface, hosts[i].ip) != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to remove down bandwidth limit for host %s", hosts[i].mac);
                         writelog(log_stream, logstr);
                     }
@@ -752,10 +758,10 @@ int main(int argc, char *argv[])
                             hosts[i].traffic_in,
                             hosts[i].traffic_out,
                             hosts[i].session,
-                            nasidentifier,
-                            radius_host,
-                            radius_acctport,
-                            radius_secret);
+                            __config.nasidentifier,
+                            __config.radius_host,
+                            __config.radius_acctport,
+                            __config.radius_secret);
 
                     if (ret != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to execute radacct interim update for host %s", hosts[i].mac);
@@ -787,23 +793,24 @@ int main(int argc, char *argv[])
     syslog(LOG_INFO, "Stopped %s", app_name);
     closelog();
 
+printf("exit wai\n");
     /* Free allocated memory */
     if (conf_file_name != NULL) free(conf_file_name);
     if (pid_file_name != NULL) free(pid_file_name);
-    if (iface != NULL) free(iface);
-    if (iface_network_ip != NULL) free(iface_network_ip);
-    if (wan != NULL) free(wan);
-    if (logfile != NULL) free(logfile);
-    if (allowed_garden != NULL) free(allowed_garden);
-    if (aaa_method != NULL) free(aaa_method);
-    if (radius_host != NULL) free(radius_host);
-    if (radius_authport != NULL) free(radius_authport);
-    if (radius_acctport != NULL) free(radius_acctport);
-    if (radius_secret != NULL) free(radius_secret);
-    if (nasidentifier != NULL) free(nasidentifier);
-    if (wai_port != NULL) free(wai_port);
-    if (config_ssl_cert != NULL) free(config_ssl_cert);
-    if (config_ssl_key != NULL) free(config_ssl_key);
+    if (__config.iface != NULL) free(__config.iface);
+    if (__config.iface_network_ip != NULL) free(__config.iface_network_ip);
+    if (__config.wan != NULL) free(__config.wan);
+    if (__config.logfile != NULL) free(__config.logfile);
+    if (__config.allowed_garden != NULL) free(__config.allowed_garden);
+    if (__config.aaa_method != NULL) free(__config.aaa_method);
+    if (__config.radius_host != NULL) free(__config.radius_host);
+    if (__config.radius_authport != NULL) free(__config.radius_authport);
+    if (__config.radius_acctport != NULL) free(__config.radius_acctport);
+    if (__config.radius_secret != NULL) free(__config.radius_secret);
+    if (__config.nasidentifier != NULL) free(__config.nasidentifier);
+    if (__config.wai_port != NULL) free(__config.wai_port);
+    if (__config.config_ssl_cert != NULL) free(__config.config_ssl_cert);
+    if (__config.config_ssl_key != NULL) free(__config.config_ssl_key);
 
     return EXIT_SUCCESS;
 }

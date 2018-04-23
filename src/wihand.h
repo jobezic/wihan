@@ -26,4 +26,22 @@
 #define __MAIN_INTERVAL 1
 #define __ACCT_INTERVAL 300
 
+typedef struct {
+    char *iface;
+    char *iface_network_ip;
+    char *wan;
+    char *allowed_garden;
+    char *logfile;
+    char *aaa_method;
+    char *radius_host;
+    char *radius_authport;
+    char *radius_acctport;
+    char *radius_secret;
+    char *nasidentifier;
+    int config_lma;
+    char *wai_port;
+    char *config_ssl_cert;
+    char *config_ssl_key;
+} config_t;
+
 #endif
