@@ -26,7 +26,7 @@
 #include "utils.h"
 #include "radius.h"
 
-int radclient(char *username, char *nasid, char *host, char *port, char *secret, reply_t *reply) {
+int radclient(char *username, char *pass, char *nasid, char *host, char *port, char *secret, reply_t *reply) {
     int ret;
     char cmd[512];
     FILE *fp;
@@ -35,7 +35,7 @@ int radclient(char *username, char *nasid, char *host, char *port, char *secret,
     char param[255] = "";
     char val[255];
 
-    snprintf(cmd, sizeof cmd, "echo User-Name=%s,NAS-Identifier=%s | radclient -4xt 2 %s:%s auth %s", username, nasid, host, port, secret);
+    snprintf(cmd, sizeof cmd, "echo User-Name=%s,User-Password=%s,NAS-Identifier=%s | radclient -4xt 2 %s:%s auth %s", username, pass, nasid, host, port, secret);
 
     fp = popen(cmd, "r");
     if (fp) {

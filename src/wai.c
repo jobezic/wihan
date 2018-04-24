@@ -26,6 +26,7 @@
 #include "../mongoose/mongoose.h"
 #include "utils.h"
 #include "host.h"
+#include "wihand.h"
 
 struct thread_data {
    int loop;
@@ -72,11 +73,13 @@ static void handle_login(struct mg_connection *nc,
 
     if (get_host_by_ip(hosts, hosts_len, src_addr, &host) == 0) {
         if (!host->status || host->status == 'D') {
-            //TODO: try auth with username, password
+            // Try to auth with username, password passed
             snprintf(logstr, sizeof logstr, "Sending auth request for %s", host->mac);
             writelog(log_stream, logstr);
 
             auth_host(host,
+                      username,
+                      password,
                       bclasses,
                       bclasses_len,
                       iface,

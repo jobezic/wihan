@@ -172,6 +172,8 @@ void set_host_replies(host_t *host, reply_t *reply) {
 }
 
 int auth_host(host_t *host,
+              char *username,
+              char *pass,
               bandclass_t bclasses[],
               int bclass_len,
               char *iface,
@@ -192,7 +194,7 @@ int auth_host(host_t *host,
 
     /* Try to auth the host */
     if (strcmp(mode, "radius") == 0) {
-        ret = radclient(host->mac, nasid, radhost, radauthport, radsecret, &reply);
+        ret = radclient(username, pass, nasid, radhost, radauthport, radsecret, &reply);
     }
 
     if (ret == 0) {
@@ -210,6 +212,9 @@ int auth_host(host_t *host,
 
             /* set host radius params */
             set_host_replies(host, &reply);
+
+            /* set auth username into host */
+            strcpy(host->username, username);
 
             /* Set bandwidth */
             if (reply.b_up > 0) {
@@ -243,7 +248,7 @@ int auth_host(host_t *host,
             }
 
             /* execute start acct */
-            ret = radacct_start(host->mac,
+            ret = radacct_start(username,
                                 host->mac,
                                 called_station,
                                 host->session,

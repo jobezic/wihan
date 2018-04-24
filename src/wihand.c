@@ -551,6 +551,8 @@ int main(int argc, char *argv[])
 
                 /* Standard auth procedure */
                 auth_host(&hosts[i],
+                          hosts[i].mac,
+                          "macauth",
                           bclasses,
                           bclass_len,
                           __config.iface,
@@ -573,7 +575,7 @@ int main(int argc, char *argv[])
                 writelog(log_stream, logstr);
 
                 /* execute start acct */
-                ret = radacct_start(hosts[i].mac,
+                ret = radacct_start(hosts[i].username,
                                     hosts[i].mac,
                                     __config.called_station,
                                     hosts[i].session,
@@ -653,7 +655,7 @@ int main(int argc, char *argv[])
                     writelog(log_stream, logstr);
 
                     /* execute stop acct */
-                    ret = radacct_stop(hosts[i].mac,
+                    ret = radacct_stop(hosts[i].username,
                             difftime(hosts[i].stop_time,hosts[i].start_time),
                             hosts[i].traffic_in,
                             hosts[i].traffic_out,
@@ -696,7 +698,7 @@ int main(int argc, char *argv[])
             for (i = 0; i < hosts_len; i++) {
                 if (hosts[i].status == 'A') {
                     /* execute interim acct */
-                    ret = radacct_interim_update(hosts[i].mac,
+                    ret = radacct_interim_update(hosts[i].username,
                             difftime(time(0), hosts[i].start_time),
                             hosts[i].traffic_in,
                             hosts[i].traffic_out,
