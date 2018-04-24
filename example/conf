@@ -49,6 +49,11 @@ radacctport 1813
 radsecret secr3t
 
 #
+# Mac authentication
+#
+macauth yes
+
+#
 # WAI Server
 #
 wai_port 3990

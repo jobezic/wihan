@@ -34,6 +34,7 @@ typedef struct {
     char *allowed_garden;
     char *logfile;
     char *aaa_method;
+    int macauth;
     char *radius_host;
     char *radius_authport;
     char *radius_acctport;

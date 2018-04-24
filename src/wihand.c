@@ -59,6 +59,7 @@ static config_t __config = {
     .allowed_garden = NULL,
     .logfile = NULL,
     .aaa_method = NULL,
+    .macauth = 0,
     .radius_host = NULL,
     .radius_authport = NULL,
     .radius_acctport = NULL,
@@ -115,6 +116,9 @@ int read_conf_file(config_t *config, int reload)
             }
             else if (strcmp(param, "aaa_method") == 0) {
                 config->aaa_method = strdup(val);
+            }
+            else if (strcmp(param, "macauth") == 0) {
+                config->macauth = strcmp(val, "yes") == 0;
             }
             else if (strcmp(param, "radius") == 0) {
                 config->radius_host = strdup(val);
@@ -543,7 +547,7 @@ int main(int argc, char *argv[])
         /* Init mac list */
         for (i = 0; i < hosts_len; i++) {
             /* if status is not set make an auth request */
-            if (!hosts[i].status && !hosts[i].staled) {
+            if (__config.macauth && !hosts[i].status && !hosts[i].staled) {
                 /* send auth request for host */
                 snprintf(logstr, sizeof logstr, "Sending auth request for %s", hosts[i].mac);
                 writelog(log_stream, logstr);
