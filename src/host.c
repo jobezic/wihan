@@ -197,10 +197,10 @@ int auth_host(host_t *host,
         ret = radclient(username, pass, nasid, radhost, radauthport, radsecret, &reply);
     }
 
-    if (ret == 0) {
-        snprintf(logstr, sizeof logstr, "Auth request %s for %s", (ret == 0) ? "AUTHORIZED" : "REJECTED", host->mac);
-        writelog(log_stream, logstr);
+    snprintf(logstr, sizeof logstr, "Auth request %s for %s", (ret == 0) ? "AUTHORIZED" : "REJECTED", host->mac);
+    writelog(log_stream, logstr);
 
+    if (ret == 0) {
         /* set host status on auth response outcome */
         if (iptables_man(__OUTGOING_ADD, host->mac, NULL) == 0
                 && iptables_man(__TRAFFIC_IN_ADD, host->mac, NULL) == 0
