@@ -161,16 +161,6 @@ void start_host(host_t *host) {
     host->idle = 0;
 }
 
-void set_host_replies(host_t *host, reply_t *reply) {
-    host->idle_timeout = (reply->idle > 0 ? reply->idle : __DEFAULT_IDLE);
-    host->session_timeout = reply->session_timeout;
-    host->b_up = reply->b_up;
-    host->b_down = reply->b_down;
-    host->max_traffic_in = reply->traffic_in;
-    host->max_traffic_out = reply->traffic_out;
-    host->max_traffic = reply->traffic_total;
-}
-
 int auth_host(host_t *host,
               char *username,
               char *pass,
@@ -191,10 +181,21 @@ int auth_host(host_t *host,
     bandclass_t *dbclass;
     int registered = 0;
     char logstr[255];
+    limits_t limits;
 
     /* Try to auth the host */
     if (strcmp(mode, "radius") == 0) {
         ret = radclient(username, pass, nasid, radhost, radauthport, radsecret, &reply);
+
+        if (ret == 0) {
+            limits.idle_timeout = (reply.idle > 0 ? reply.idle : __DEFAULT_IDLE);
+            limits.session_timeout = reply.session_timeout;
+            limits.b_up = reply.b_up;
+            limits.b_down = reply.b_down;
+            limits.max_traffic_in = reply.traffic_in;
+            limits.max_traffic_out = reply.traffic_out;
+            limits.max_traffic = reply.traffic_total;
+        }
     }
 
     snprintf(logstr, sizeof logstr, "Auth request %s for %s", (ret == 0) ? "AUTHORIZED" : "REJECTED", host->mac);
@@ -210,16 +211,16 @@ int auth_host(host_t *host,
             snprintf(logstr, sizeof logstr, "Authorize host %s", host->mac);
             writelog(log_stream, logstr);
 
-            /* set host radius params */
-            set_host_replies(host, &reply);
+            /* set host limits */
+            host->limits = limits;
 
             /* set auth username into host */
             strcpy(host->username, username);
 
             /* Set bandwidth */
-            if (reply.b_up > 0) {
-                if (limit_up_band(iface, host->ip, reply.b_up) == 0) {
-                    snprintf(logstr, sizeof logstr, "Set up bandwidth limit to %d kbps for host %s", reply.b_up, host->mac);
+            if (limits.b_up > 0) {
+                if (limit_up_band(iface, host->ip, limits.b_up) == 0) {
+                    snprintf(logstr, sizeof logstr, "Set up bandwidth limit to %d kbps for host %s", limits.b_up, host->mac);
                     writelog(log_stream, logstr);
                 } else {
                     snprintf(logstr, sizeof logstr, "Error in setting up bandwidth limit for host %s", host->mac);
@@ -227,15 +228,15 @@ int auth_host(host_t *host,
                 }
             }
 
-            if (reply.b_down > 0) {
-                if (get_or_instance_bclass(bclasses, &bclass_len, reply.b_down, iface, &dbclass, &registered) == 0) {
+            if (limits.b_down > 0) {
+                if (get_or_instance_bclass(bclasses, &bclass_len, limits.b_down, iface, &dbclass, &registered) == 0) {
                     if (registered == 1) {
                         snprintf(logstr, sizeof logstr, "Register new down bandwidth class %d", dbclass->classid);
                         writelog(log_stream, logstr);
                     }
 
                     if (limit_down_band(iface, host->ip, dbclass) == 0) {
-                        snprintf(logstr, sizeof logstr, "Set down bandwidth limit to %d kbps for host %s", reply.b_down, host->mac);
+                        snprintf(logstr, sizeof logstr, "Set down bandwidth limit to %d kbps for host %s", limits.b_down, host->mac);
                         writelog(log_stream, logstr);
                     } else {
                         snprintf(logstr, sizeof logstr, "Error in set down bandwidth limit for host %s", host->mac);

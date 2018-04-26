@@ -41,6 +41,15 @@
 #define __FILTER_GLOBAL_ADD 200
 #define __NAT_GLOBAL_ADD 210
 
+typedef struct {
+    unsigned int idle_timeout;
+    unsigned int session_timeout;
+    unsigned int b_up;
+    unsigned int b_down;
+    unsigned int max_traffic_in;
+    unsigned int max_traffic_out;
+    unsigned int max_traffic;
+} limits_t;
 
 /* Define the host proto */
 typedef struct {
@@ -55,13 +64,7 @@ typedef struct {
     unsigned long traffic_out;
     int idle;
     char session[20];
-    unsigned int idle_timeout;
-    unsigned int session_timeout;
-    unsigned int b_up;
-    unsigned int b_down;
-    unsigned int max_traffic_in;
-    unsigned int max_traffic_out;
-    unsigned int max_traffic;
+    limits_t limits;
 } host_t;
 
 int get_host_by_ip(host_t [], int, char *, host_t **);

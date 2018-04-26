@@ -212,14 +212,14 @@ void handle_signal(int sig)
         /* Deinit bandwidth stack */
         if (__config.iface) {
             for (i = 0; i < hosts_len; i++) {
-                if (hosts[i].b_up > 0) {
+                if (hosts[i].limits.b_up > 0) {
                     snprintf(logstr, sizeof logstr, "Unlimit up bandwidth for host %s", hosts[i].mac);
                     writelog(log_stream, logstr);
 
                     unlimit_up_band(__config.iface, hosts[i].ip);
                 }
 
-                if (hosts[i].b_down > 0) {
+                if (hosts[i].limits.b_down > 0) {
                     snprintf(logstr, sizeof logstr, "Unlimit down bandwidth for host %s", hosts[i].mac);
                     writelog(log_stream, logstr);
 
@@ -631,24 +631,24 @@ int main(int argc, char *argv[])
             /* Check for idle timeout and session timeout */
             curtime = time(NULL);
             if (hosts[i].status == 'A' &&
-                (hosts[i].idle > hosts[i].idle_timeout ||
-                 hosts[i].session_timeout > 0 && curtime - hosts[i].start_time > hosts[i].session_timeout ||
-                 hosts[i].max_traffic_in > 0 && hosts[i].traffic_in > hosts[i].max_traffic_in ||
-                 hosts[i].max_traffic_out > 0 && hosts[i].traffic_out > hosts[i].max_traffic_out ||
-                 hosts[i].max_traffic > 0 && hosts[i].traffic_in + hosts[i].traffic_out > hosts[i].max_traffic))
+                (hosts[i].idle > hosts[i].limits.idle_timeout ||
+                 hosts[i].limits.session_timeout > 0 && curtime - hosts[i].start_time > hosts[i].limits.session_timeout ||
+                 hosts[i].limits.max_traffic_in > 0 && hosts[i].traffic_in > hosts[i].limits.max_traffic_in ||
+                 hosts[i].limits.max_traffic_out > 0 && hosts[i].traffic_out > hosts[i].limits.max_traffic_out ||
+                 hosts[i].limits.max_traffic > 0 && hosts[i].traffic_in + hosts[i].traffic_out > hosts[i].limits.max_traffic))
             {
                 /* Disconnect for idle timeout */
                 if (dnat_host(&hosts[i]) == 0) {
-                    if (hosts[i].idle > hosts[i].idle_timeout) {
+                    if (hosts[i].idle > hosts[i].limits.idle_timeout) {
                         dnat_reason = "idle timeout";
                     }
-                    else if (hosts[i].max_traffic_in > 0 && hosts[i].traffic_in > hosts[i].max_traffic_in) {
+                    else if (hosts[i].limits.max_traffic_in > 0 && hosts[i].traffic_in > hosts[i].limits.max_traffic_in) {
                         dnat_reason = "traffic in limit reached";
                     }
-                    else if (hosts[i].max_traffic_out > 0 && hosts[i].traffic_out > hosts[i].max_traffic_out) {
+                    else if (hosts[i].limits.max_traffic_out > 0 && hosts[i].traffic_out > hosts[i].limits.max_traffic_out) {
                         dnat_reason = "traffic out limit reached";
                     }
-                    else if (hosts[i].max_traffic > 0 && hosts[i].traffic_in + hosts[i].traffic_out > hosts[i].max_traffic) {
+                    else if (hosts[i].limits.max_traffic > 0 && hosts[i].traffic_in + hosts[i].traffic_out > hosts[i].limits.max_traffic) {
                         dnat_reason = "traffic limit reached";
                     }
                     else {
@@ -675,12 +675,12 @@ int main(int argc, char *argv[])
                     }
 
                     /* Remove bandwidth limits */
-                    if (hosts[i].b_up > 0 && unlimit_up_band(__config.iface, hosts[i].ip) != 0) {
+                    if (hosts[i].limits.b_up > 0 && unlimit_up_band(__config.iface, hosts[i].ip) != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to remove up bandwidth limit for host %s", hosts[i].mac);
                         writelog(log_stream, logstr);
                     }
 
-                    if (hosts[i].b_down > 0 && unlimit_down_band(__config.iface, hosts[i].ip) != 0) {
+                    if (hosts[i].limits.b_down > 0 && unlimit_down_band(__config.iface, hosts[i].ip) != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to remove down bandwidth limit for host %s", hosts[i].mac);
                         writelog(log_stream, logstr);
                     }
