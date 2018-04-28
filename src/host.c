@@ -26,6 +26,7 @@
 #include "host.h"
 #include "iptables.h"
 #include "utils.h"
+#include "lma_cache.h"
 
 int get_host_by_ip(host_t hosts[], int hosts_len, char *ip, host_t **host) {
     int i = 0;
@@ -168,6 +169,7 @@ int auth_host(host_t *host,
               int bclass_len,
               char *iface,
               char *mode,
+              int lma,
               char *nasid,
               char *called_station,
               char *radhost,
@@ -177,24 +179,31 @@ int auth_host(host_t *host,
               FILE *log_stream)
 {
     int ret = 0;
-    reply_t reply;
+    reply_t reply = {0, 0, 0, 0, 0, 0, 0};
     bandclass_t *dbclass;
     int registered = 0;
     char logstr[255];
+    entry_t cache_entry;
     limits_t limits;
 
     /* Try to auth the host */
-    if (strcmp(mode, "radius") == 0) {
-        ret = radclient(username, pass, nasid, radhost, radauthport, radsecret, &reply);
+    if (lma && cache_retrieve_host(host->mac, &cache_entry) == 0) {
+        limits = cache_entry.limits;
+        limits.session_timeout = cache_entry.session_timeout-cache_entry.session_time;
+        ret = 0;
+    } else {
+        if (strcmp(mode, "radius") == 0) {
+            ret = radclient(username, pass, nasid, radhost, radauthport, radsecret, &reply);
 
-        if (ret == 0) {
-            limits.idle_timeout = (reply.idle > 0 ? reply.idle : __DEFAULT_IDLE);
-            limits.session_timeout = reply.session_timeout;
-            limits.b_up = reply.b_up;
-            limits.b_down = reply.b_down;
-            limits.max_traffic_in = reply.traffic_in;
-            limits.max_traffic_out = reply.traffic_out;
-            limits.max_traffic = reply.traffic_total;
+            if (ret == 0) {
+                limits.idle_timeout = (reply.idle > 0 ? reply.idle : __DEFAULT_IDLE);
+                limits.session_timeout = reply.session_timeout;
+                limits.b_up = reply.b_up;
+                limits.b_down = reply.b_down;
+                limits.max_traffic_in = reply.traffic_in;
+                limits.max_traffic_out = reply.traffic_out;
+                limits.max_traffic = reply.traffic_total;
+            }
         }
     }
 

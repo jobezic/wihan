@@ -34,6 +34,7 @@ wihand_SOURCES = \
 	src/utils.c \
 	src/tc.c \
 	src/wihand.c \
+	src/lma_cache.c \
 	mongoose/mongoose.c \
 	src/wai.c
 

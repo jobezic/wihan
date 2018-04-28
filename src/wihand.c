@@ -39,6 +39,7 @@
 #include "utils.h"
 #include "radius.h"
 #include "tc.h"
+#include "lma_cache.h"
 #include "wai.h"
 
 static int running = 0;
@@ -65,7 +66,7 @@ static config_t __config = {
     .radius_acctport = NULL,
     .radius_secret = NULL,
     .nasidentifier = NULL,
-    .config_lma = 0,
+    .lma = 0,
     .wai_port = NULL,
     .ssl_cert = NULL,
     .ssl_key = NULL
@@ -136,7 +137,7 @@ int read_conf_file(config_t *config, int reload)
                 config->nasidentifier = strdup(val);
             }
             else if (strcmp(param, "lma") == 0) {
-                config->config_lma = strcmp(val, "yes") == 0;
+                config->lma = strcmp(val, "yes") == 0;
             }
             else if (strcmp(param, "wai_port") == 0) {
                 config->wai_port = strdup(val);
@@ -405,7 +406,7 @@ int main(int argc, char *argv[])
 
     char called_station[20];
     host_t arp_cache[1024]; /* FIXME: allocate dynamically */
-    int arp_len, i, retcode, ret;
+    int arp_len, i, retcode, ret, prev_staled;
     char logstr[255];
     char radcmd[255];
     unsigned long traffic_in, traffic_out;
@@ -547,11 +548,13 @@ int main(int argc, char *argv[])
         /* Init mac list */
         for (i = 0; i < hosts_len; i++) {
             /* if status is not set make an auth request */
-            if (__config.macauth && !hosts[i].status && !hosts[i].staled) {
+            if (__config.macauth &&
+                ((!hosts[i].status && !hosts[i].staled) ||
+                  hosts[i].status == 'D' && hosts[i].staled == 0 && prev_staled == 1))
+            {
                 /* send auth request for host */
                 snprintf(logstr, sizeof logstr, "Sending auth request for %s", hosts[i].mac);
                 writelog(log_stream, logstr);
-
 
                 /* Standard auth procedure */
                 auth_host(&hosts[i],
@@ -561,6 +564,7 @@ int main(int argc, char *argv[])
                           bclass_len,
                           __config.iface,
                           __config.aaa_method,
+                          __config.lma,
                           __config.nasidentifier,
                           __config.called_station,
                           __config.radius_host,
@@ -684,11 +688,44 @@ int main(int argc, char *argv[])
                         snprintf(logstr, sizeof logstr, "Fail to remove down bandwidth limit for host %s", hosts[i].mac);
                         writelog(log_stream, logstr);
                     }
+
+                    /* Write lma cache */
+                    if (__config.lma && hosts[i].username != NULL) {
+                        entry_t cache_entry = {0, 0, 0, 0, 0};
+
+                        if (cache_retrieve_host(hosts[i].mac, &cache_entry) == 0) {
+                            cache_entry.session_time += hosts[i].stop_time-hosts[i].start_time;
+
+                            if (cache_update_host(&cache_entry) == 0) {
+                                snprintf(logstr, sizeof logstr, "Host %s was pulled in the cache (update)", hosts[i].mac);
+                                writelog(log_stream, logstr);
+                            } else {
+                                snprintf(logstr, sizeof logstr, "Failed to pull host %s in the cache (update)", hosts[i].mac);
+                                writelog(log_stream, logstr);
+                            }
+                        } else {
+                            strcpy(cache_entry.id, hosts[i].mac);
+                            cache_entry.created_at = time(NULL);
+                            cache_entry.session_time = hosts[i].stop_time-hosts[i].start_time;
+                            cache_entry.session_timeout = hosts[i].limits.session_timeout;
+                            cache_entry.limits = hosts[i].limits;
+
+                            if (cache_persist_host(&cache_entry) == 0) {
+                                snprintf(logstr, sizeof logstr, "Host %s was pulled in the cache", hosts[i].mac);
+                                writelog(log_stream, logstr);
+                            } else {
+                                snprintf(logstr, sizeof logstr, "Failed to pull host %s in the cache", hosts[i].mac);
+                                writelog(log_stream, logstr);
+                            }
+                        }
+                    }
                 } else {
                     snprintf(logstr, sizeof logstr, "Fail to DNAT %s for %s", hosts[i].mac, dnat_reason);
                     writelog(log_stream, logstr);
                 }
             }
+
+            prev_staled = hosts[i].staled;
         }
 
         /* Write hosts list */

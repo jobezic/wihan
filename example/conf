@@ -54,6 +54,16 @@ radsecret secr3t
 macauth yes
 
 #
+# LMA - Local MAC Authentication
+#
+# The Local MAC Authentication provide a mechanism to persist a user session
+# until its own expiration (see Session-Timeout), using the user's MAC address.
+# With LMA enabled, the subsequent login attempts within the session duration
+# will be automatically accepted without issuing a new radius request.
+#
+lma yes
+
+#
 # WAI Server
 #
 wai_port 3990
