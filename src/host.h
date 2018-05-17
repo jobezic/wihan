@@ -58,6 +58,7 @@ typedef struct {
     char username[128];
     char status;
     int staled;
+    int pstaled;
     time_t start_time;
     time_t stop_time;
     unsigned long traffic_in;

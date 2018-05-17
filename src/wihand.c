@@ -406,7 +406,7 @@ int main(int argc, char *argv[])
 
     char called_station[20];
     host_t arp_cache[1024]; /* FIXME: allocate dynamically */
-    int arp_len, i, retcode, ret, prev_staled;
+    int arp_len, i, retcode, ret;
     char logstr[255];
     char radcmd[255];
     unsigned long traffic_in, traffic_out;
@@ -550,7 +550,7 @@ int main(int argc, char *argv[])
             /* if status is not set make an auth request */
             if (__config.macauth &&
                 ((!hosts[i].status && !hosts[i].staled) ||
-                  hosts[i].status == 'D' && hosts[i].staled == 0 && prev_staled == 1))
+                  hosts[i].status == 'D' && hosts[i].staled == 0 && hosts[i].pstaled == 1))
             {
                 /* send auth request for host */
                 snprintf(logstr, sizeof logstr, "Sending auth request for %s", hosts[i].mac);
@@ -725,7 +725,7 @@ int main(int argc, char *argv[])
                 }
             }
 
-            prev_staled = hosts[i].staled;
+            hosts[i].pstaled = hosts[i].staled;
         }
 
         /* Write hosts list */
