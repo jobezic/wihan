@@ -180,7 +180,7 @@ int print_status()
     status_file = fopen("/tmp/wihand.status", "r");
 
     if (status_file == NULL) {
-        writelog(log_stream, "Can't read status file");
+        printf("Can't read status file!\n");
         return EXIT_FAILURE;
     }
 
