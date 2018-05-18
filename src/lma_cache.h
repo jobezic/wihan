@@ -1,5 +1,5 @@
 /*
- * radius.h
+ * lma_cache.h
  *
  * Copyright (C) 2017-2018 Geenkle
  *
@@ -20,25 +20,23 @@
  * Author: Giovanni Bezicheri <giovanni@geenkle.com>
  */
 
-#ifndef _RADIUS_H
-#define _RADIUS_H 1
+#ifndef _LMA_CACHE_H
+#define _LMA_CACHE_H 1
 
-#include <time.h>
+#include "radius.h"
+#include "host.h"
 
-/* Replies */
 typedef struct {
-    unsigned int idle;
+    char id[20];
+    unsigned int created_at;
+    unsigned int expired_at;
     unsigned int session_timeout;
-    unsigned int b_down;
-    unsigned int b_up;
-    unsigned int traffic_in;
-    unsigned int traffic_out;
-    unsigned int traffic_total;
-} reply_t;
+    unsigned int session_time;
+    limits_t limits;
+} entry_t;
 
-int radclient(char *, char *, char *, char *, char *, char *, reply_t *);
-int radacct_start(char *, char *, char *, char *, char *, char *, char *, char *);
-int radacct_stop(char *, time_t, unsigned long, unsigned long, char *, char *, char *, char *, char *);
-int radacct_interim_update(char *, time_t, unsigned long, unsigned long, char *, char *, char *, char *, char *);
+int cache_retrieve_host(char *, entry_t *);
+int cache_persist_host(entry_t *);
+int cache_update_host(entry_t *);
 
 #endif

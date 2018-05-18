@@ -23,20 +23,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include "utils.h"
 #include "radius.h"
 
-int radclient(char *username, char *nasid, char *host, char *port, char *secret, reply_t *reply) {
+int radclient(char *username, char *pass, char *nasid, char *host, char *port, char *secret, reply_t *reply) {
     int ret;
     char cmd[512];
     FILE *fp;
-    char *line;
+    char *line = NULL;
     size_t len = 0;
-    char param[255];
+    char param[255] = "";
     char val[255];
 
-    snprintf(cmd, sizeof cmd, "echo User-Name=%s,NAS-Identifier=%s | radclient -4xt 2 %s:%s auth %s", username, nasid, host, port, secret);
+    snprintf(cmd, sizeof cmd, "echo User-Name=%s,User-Password=%s,NAS-Identifier=%s | radclient -4xt 2 %s:%s auth %s", username, pass, nasid, host, port, secret);
 
     fp = popen(cmd, "r");
     if (fp) {
@@ -50,12 +49,31 @@ int radclient(char *username, char *nasid, char *host, char *port, char *secret,
             else if (strcmp(param, "Session-Timeout") == 0) {
                 reply->session_timeout = atoi(val);
             }
-            else if (strcmp(param, "ChilliSpot-Bandwidth-Max-Down") == 0) {
+            else if (strcmp(param, "WISPr-Bandwidth-Max-Down") == 0) {
                 reply->b_down = atoi(val);
             }
-            else if (strcmp(param, "ChilliSpot-Bandwidth-Max-Up") == 0) {
+            else if (strcmp(param, "WISPr-Bandwidth-Max-Up") == 0) {
                 reply->b_up = atoi(val);
             }
+            else if (strcmp(param, "ChilliSpot-Max-Input-Octets") == 0) {
+                reply->traffic_in = atoi(val);
+            }
+            else if (strcmp(param, "ChilliSpot-Max-Output-Octets") == 0) {
+                reply->traffic_out = atoi(val);
+            }
+            else if (strcmp(param, "ChilliSpot-Max-Total-Octets") == 0) {
+                reply->traffic_total = atoi(val);
+            }
+
+            if (line != NULL) {
+                free(line);
+                line = NULL;
+            }
+        }
+
+        if (line != NULL) {
+            free(line);
+            line = NULL;
         }
     }
 
@@ -75,7 +93,7 @@ int radacct_start(char *username,
     int ret;
     char cmd[512];
     char token[20];
-    char mac[20];
+    char mac[128];
 
     /* convert username in mac format */
     strcpy(mac, username);
@@ -118,7 +136,7 @@ int radacct_stop(char *username,
         char *radsecret) {
     int ret;
     char cmd[512];
-    char mac[20];
+    char mac[128];
 
     /* convert username in mac format */
     strcpy(mac, username);
@@ -158,7 +176,7 @@ int radacct_interim_update(char *username,
                            char *radsecret) {
     int ret;
     char cmd[512];
-    char mac[20];
+    char mac[128];
 
     /* convert username in mac format */
     strcpy(mac, username);

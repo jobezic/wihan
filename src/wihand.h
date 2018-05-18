@@ -1,5 +1,5 @@
 /*
- * radius.h
+ * Wihand - Wifi hotspot handler daemon
  *
  * Copyright (C) 2017-2018 Geenkle
  *
@@ -20,25 +20,30 @@
  * Author: Giovanni Bezicheri <giovanni@geenkle.com>
  */
 
-#ifndef _RADIUS_H
-#define _RADIUS_H 1
+#ifndef _WIHAND_H
+#define _WIHAND_H 1
 
-#include <time.h>
+#define __MAIN_INTERVAL 1
+#define __ACCT_INTERVAL 300
 
-/* Replies */
 typedef struct {
-    unsigned int idle;
-    unsigned int session_timeout;
-    unsigned int b_down;
-    unsigned int b_up;
-    unsigned int traffic_in;
-    unsigned int traffic_out;
-    unsigned int traffic_total;
-} reply_t;
-
-int radclient(char *, char *, char *, char *, char *, char *, reply_t *);
-int radacct_start(char *, char *, char *, char *, char *, char *, char *, char *);
-int radacct_stop(char *, time_t, unsigned long, unsigned long, char *, char *, char *, char *, char *);
-int radacct_interim_update(char *, time_t, unsigned long, unsigned long, char *, char *, char *, char *, char *);
+    char *iface;
+    char *iface_network_ip;
+    char *called_station;
+    char *wan;
+    char *allowed_garden;
+    char *logfile;
+    char *aaa_method;
+    int macauth;
+    char *radius_host;
+    char *radius_authport;
+    char *radius_acctport;
+    char *radius_secret;
+    char *nasidentifier;
+    int lma;
+    char *wai_port;
+    char *ssl_cert;
+    char *ssl_key;
+} config_t;
 
 #endif

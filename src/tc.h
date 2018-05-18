@@ -1,5 +1,5 @@
 /*
- * radius.h
+ * tc.h
  *
  * Copyright (C) 2017-2018 Geenkle
  *
@@ -20,25 +20,22 @@
  * Author: Giovanni Bezicheri <giovanni@geenkle.com>
  */
 
-#ifndef _RADIUS_H
-#define _RADIUS_H 1
+#ifndef _TC_H
+#define _TC_H 1
 
-#include <time.h>
-
-/* Replies */
 typedef struct {
-    unsigned int idle;
-    unsigned int session_timeout;
-    unsigned int b_down;
-    unsigned int b_up;
-    unsigned int traffic_in;
-    unsigned int traffic_out;
-    unsigned int traffic_total;
-} reply_t;
+    int classid;
+    unsigned int kbps;
+} bandclass_t;
 
-int radclient(char *, char *, char *, char *, char *, char *, reply_t *);
-int radacct_start(char *, char *, char *, char *, char *, char *, char *, char *);
-int radacct_stop(char *, time_t, unsigned long, unsigned long, char *, char *, char *, char *, char *);
-int radacct_interim_update(char *, time_t, unsigned long, unsigned long, char *, char *, char *, char *, char *);
+int init_bandwidth_stack(char *);
+int deinit_bandwidth_stack(char *);
+int register_bclass(char *, int, unsigned int, bandclass_t *);
+int get_or_instance_bclass(bandclass_t [], int *, unsigned int, char *, bandclass_t **, int *);
+int unregister_bclass(char *, bandclass_t);
+int limit_down_band(char *, char *, bandclass_t *);
+int limit_up_band(char *, char *, unsigned int);
+int unlimit_up_band(char *, char *);
+int unlimit_down_band(char *, char *);
 
 #endif

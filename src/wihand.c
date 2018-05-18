@@ -32,49 +32,15 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <errno.h>
-#include <time.h>
 #include <string.h>
 #include "../config.h"
+#include "wihand.h"
+#include "host.h"
 #include "utils.h"
-#include "iptables.h"
 #include "radius.h"
-
-
-#define __MAIN_INTERVAL 1
-#define __ACCT_INTERVAL 300
-
-#define __DEFAULT_IDLE  60
-
-#define __OUTGOING_FLUSH 100
-#define __TRAFFIC_IN_FLUSH 110
-#define __TRAFFIC_OUT_FLUSH 120
-#define __OUTGOING_ADD 130
-#define __TRAFFIC_IN_ADD 140
-#define __TRAFFIC_OUT_ADD 150
-#define __CHECK_AUTH 160
-#define __READ_TRAFFIC_IN 170
-#define __READ_TRAFFIC_OUT 180
-#define __REMOVE_HOST 190
-#define __FILTER_GLOBAL_ADD 200
-#define __NAT_GLOBAL_ADD 210
-
-/* Define the host proto */
-typedef struct {
-    char ip[20];
-    char mac[18];
-    char status;
-    int staled;
-    time_t start_time;
-    time_t stop_time;
-    unsigned long traffic_in;
-    unsigned long traffic_out;
-    int idle;
-    char session[20];
-    unsigned int idle_timeout;
-    unsigned int session_timeout;
-    unsigned int b_up;
-    unsigned int b_down;
-} host_t;
+#include "tc.h"
+#include "lma_cache.h"
+#include "wai.h"
 
 static int running = 0;
 static int delay = 1;
@@ -82,98 +48,41 @@ static char *conf_file_name = NULL;
 static char *pid_file_name = NULL;
 static int pid_fd = -1;
 static char *app_name = "wihand";
-static char *iface = NULL;
-static char *iface_network_ip = NULL;
-static char *wan = NULL;
-static char *logfile = NULL;
-static char *allowed_garden = NULL;
-static char *aaa_method = NULL;
-static char *radius_host = NULL;
-static char *radius_authport = NULL;
-static char *radius_acctport = NULL;
-static char *radius_secret = NULL;
-static char *nasidentifier = NULL;
 static FILE *log_stream = NULL;
 host_t hosts[65535];
-int hosts_len, loopcount = 1;
+int hosts_len, loopcount = 1, bclass_len = 0;
+bandclass_t bclasses[65535];
 
-
-void writelog(FILE *log_stream, char *msg) {
-    struct tm *sTm;
-    char buff[20];
-    int ret;
-
-    time_t now = time (0);
-    sTm = gmtime (&now);
-    strftime (buff, sizeof(buff), "%Y-%m-%d %H:%M:%S", sTm);
-    ret = fprintf(log_stream, "[%s] %s\n", buff, msg);
-
-    if (ret < 0) {
-        syslog(LOG_ERR, "Can not write to log stream: %s", strerror(errno));
-        return;
-    }
-    ret = fflush(log_stream);
-    if (ret != 0) {
-        syslog(LOG_ERR, "Can not fflush() log stream: %s", strerror(errno));
-        return;
-    }
-}
-
-void write_hosts_list(host_t *hosts, int len) {
-    FILE *status_file = NULL;
-    char tbuff[20];
-    char ebuff[20];
-    int i;
-    struct tm *sTm;
-
-    status_file = fopen("/tmp/wihand.status", "w+");
-
-    fprintf(status_file, "MAC\t\t\tStatus\tIdle\tSession Start\t\tSession Stop\t\tTraffic In\tTraffic Out\tSession\n");
-    fprintf(status_file, "----------------------------------------------------------------------------------------------------------------------------------------\n");
-
-    for (i = 0; i < len; i++) {
-        strcpy(tbuff, "                   ");
-        strcpy(ebuff, "                   ");
-
-        if (hosts[i].start_time) {
-            sTm = gmtime (&hosts[i].start_time);
-            strftime (tbuff, sizeof(tbuff), "%Y-%m-%d %H:%M:%S", sTm);
-        }
-
-        if (hosts[i].stop_time) {
-            sTm = gmtime (&hosts[i].stop_time);
-            strftime (ebuff, sizeof(ebuff), "%Y-%m-%d %H:%M:%S", sTm);
-        }
-
-        if (hosts[i].traffic_in == 0 && hosts[i].traffic_out == 0) {
-            fprintf(status_file, "%s\t%c\t%d\t%s\t%s\n", hosts[i].mac, hosts[i].status, hosts[i].idle, tbuff, ebuff);
-        } else {
-            fprintf(status_file, "%s\t%c\t%d\t%s\t%s\t\t%lu\t\t%lu\t%s\n",
-                    hosts[i].mac,
-                    hosts[i].status,
-                    hosts[i].idle,
-                    tbuff,
-                    ebuff,
-                    hosts[i].traffic_in,
-                    hosts[i].traffic_out,
-                    hosts[i].session);
-        }
-    }
-
-    fclose(status_file);
-}
+static config_t __config = {
+    .iface = NULL,
+    .iface_network_ip = NULL,
+    .wan = NULL,
+    .allowed_garden = NULL,
+    .logfile = NULL,
+    .aaa_method = NULL,
+    .macauth = 0,
+    .radius_host = NULL,
+    .radius_authport = NULL,
+    .radius_acctport = NULL,
+    .radius_secret = NULL,
+    .nasidentifier = NULL,
+    .lma = 0,
+    .wai_port = NULL,
+    .ssl_cert = NULL,
+    .ssl_key = NULL
+};
 
 /**
  * Read configuration from config file
  */
-int read_conf_file(int reload)
+int read_conf_file(config_t *config, int reload)
 {
     FILE *conf_file = NULL;
     int ret = -1;
     char * line = NULL;
     size_t len = 0;
     ssize_t read;
-    char param[255];
+    char param[255] = "";
     char val[255];
 
     if (conf_file_name == NULL) return 0;
@@ -188,41 +97,56 @@ int read_conf_file(int reload)
 
     while ((read = getline(&line, &len, conf_file)) != -1) {
         trim(line);
-        if (line[0] != '#' && line != "\n") {
+        if (line[0] != '#' && line[0] != '\n') {
             sscanf(line, "%s %s\n", param, val);
 
             if (strcmp(param, "iface") == 0) {
-                iface = strdup(val);
+                config->iface = strdup(val);
             }
             else if (strcmp(param, "net") == 0) {
-                iface_network_ip = strdup(val);
+                config->iface_network_ip = strdup(val);
             }
             else if (strcmp(param, "wan") == 0) {
-                wan = strdup(val);
+                config->wan = strdup(val);
             }
             else if (strcmp(param, "allow") == 0) {
-                allowed_garden = strdup(val);
+                config->allowed_garden = strdup(val);
             }
             else if (strcmp(param, "log") == 0) {
-                logfile = strdup(val);
+                config->logfile = strdup(val);
             }
             else if (strcmp(param, "aaa_method") == 0) {
-                aaa_method = strdup(val);
+                config->aaa_method = strdup(val);
+            }
+            else if (strcmp(param, "macauth") == 0) {
+                config->macauth = strcmp(val, "yes") == 0;
             }
             else if (strcmp(param, "radius") == 0) {
-                radius_host = strdup(val);
+                config->radius_host = strdup(val);
             }
             else if (strcmp(param, "radauthport") == 0) {
-                radius_authport = strdup(val);
+                config->radius_authport = strdup(val);
             }
             else if (strcmp(param, "radacctport") == 0) {
-                radius_acctport = strdup(val);
+                config->radius_acctport = strdup(val);
             }
             else if (strcmp(param, "radsecret") == 0) {
-                radius_secret = strdup(val);
+                config->radius_secret = strdup(val);
             }
             else if (strcmp(param, "nasidentifier") == 0) {
-                nasidentifier = strdup(val);
+                config->nasidentifier = strdup(val);
+            }
+            else if (strcmp(param, "lma") == 0) {
+                config->lma = strcmp(val, "yes") == 0;
+            }
+            else if (strcmp(param, "wai_port") == 0) {
+                config->wai_port = strdup(val);
+            }
+            else if (strcmp(param, "sslcert") == 0) {
+                config->ssl_cert = strdup(val);
+            }
+            else if (strcmp(param, "sslkey") == 0) {
+                config->ssl_key = strdup(val);
             }
         }
     }
@@ -247,35 +171,6 @@ int read_conf_file(int reload)
     return ret;
 }
 
-/**
- * This function tries to test config file
- */
-int test_conf_file(char *_conf_file_name)
-{
-    FILE *conf_file = NULL;
-    int ret = -1;
-
-    conf_file = fopen(_conf_file_name, "r");
-
-    if (conf_file == NULL) {
-        writelog(log_stream, "Can't read config file");
-        return EXIT_FAILURE;
-    }
-
-    ret = fscanf(conf_file, "%d", &delay);
-
-    if (ret <= 0) {
-        writelog(log_stream, "Wrong config file");
-    }
-
-    fclose(conf_file);
-
-    if (ret > 0)
-        return EXIT_SUCCESS;
-    else
-        return EXIT_FAILURE;
-}
-
 int print_status()
 {
     FILE *status_file = NULL;
@@ -285,7 +180,7 @@ int print_status()
     status_file = fopen("/tmp/wihand.status", "r");
 
     if (status_file == NULL) {
-        writelog(log_stream, "Can't read status file");
+        printf("Can't read status file!\n");
         return EXIT_FAILURE;
     }
 
@@ -302,111 +197,51 @@ int print_status()
 
 }
 
-int iptables_man(const int action, char* mac, char* data) {
-    int retcode;
-
-    switch(action) {
-        case __OUTGOING_FLUSH:
-            retcode = flush_chain("mangle", "wlan0_Outgoing");
-
-            break;
-        case __TRAFFIC_IN_FLUSH:
-            retcode = flush_chain("filter", "wlan0_Traffic_In");
-
-            break;
-        case __TRAFFIC_OUT_FLUSH:
-            retcode = flush_chain("filter", "wlan0_Traffic_Out");
-
-            break;
-        case __OUTGOING_ADD:
-            retcode = add_mac_rule_to_chain("mangle", "wlan0_Outgoing", mac, "MARK --set-mark 2");
-
-            break;
-        case __FILTER_GLOBAL_ADD:
-            retcode = add_dest_rule("filter", "wlan0_Global", mac, "ACCEPT");
-
-            break;
-        case __NAT_GLOBAL_ADD:
-            retcode = add_dest_rule("nat", "wlan0_Global", mac, "ACCEPT");
-
-            break;
-        case __TRAFFIC_IN_ADD:
-            retcode = add_mac_rule_to_chain("filter", "wlan0_Traffic_In", mac, "ACCEPT");
-
-            break;
-        case __TRAFFIC_OUT_ADD:
-            retcode = add_mac_rule_to_chain("filter", "wlan0_Traffic_Out", mac, "ACCEPT");
-
-            break;
-        case __CHECK_AUTH:
-            retcode = check_chain_rule("mangle", "wlan0_Outgoing", mac);
-
-            break;
-        case __READ_TRAFFIC_IN:
-            retcode = read_chain_bytes("filter", "wlan0_Traffic_In", mac, data);
-
-            break;
-        case __READ_TRAFFIC_OUT:
-            retcode = read_chain_bytes("filter", "wlan0_Traffic_Out", mac, data);
-
-            break;
-        case __REMOVE_HOST:
-            retcode = remove_rule_from_chain("mangle", "wlan0_Outgoing", mac)
-                    || remove_rule_from_chain("filter", "wlan0_Traffic_In", mac)
-                    || remove_rule_from_chain("filter", "wlan0_Traffic_Out", mac);
-            break;
-    }
-
-    return retcode;
-}
-
-unsigned long read_traffic_data(char *mac, const int inout) {
-    unsigned long res = 0;
-    int ret;
-    char bytes[64];
-
-    ret = iptables_man(inout, mac, bytes);
-
-    if (ret == 0) {
-        if (strcmp(bytes, "") != 0) {
-            res = atol(bytes);
-        }
-    }
-
-    return res;
-}
-
-int authorize_host(char *mac)
-{
-    int ret, ret_tia, ret_toa;
-
-    ret = iptables_man(__OUTGOING_ADD, mac, NULL);
-    ret_tia = iptables_man(__TRAFFIC_IN_ADD, mac, NULL);
-    ret_toa = iptables_man(__TRAFFIC_OUT_ADD, mac, NULL);
-
-    if (ret == 0 && ret_tia == 0 && ret_toa == 0)
-        return EXIT_SUCCESS;
-    else
-        return EXIT_FAILURE;
-}
-
-int check_authorized_host(char *mac)
-{
-    int ret;
-
-    ret = iptables_man(__CHECK_AUTH, mac, NULL);
-
-    return ret;
-}
-
-
 /**
  * Callback function for handling signals.
  */
 void handle_signal(int sig)
 {
+    int i;
+    char logstr[255];
+
     if (sig == SIGINT) {
         writelog(log_stream, "Stopping daemon ...");
+
+        /* Unset fw rules TODO */
+
+        /* Deinit bandwidth stack */
+        if (__config.iface) {
+            for (i = 0; i < hosts_len; i++) {
+                if (hosts[i].limits.b_up > 0) {
+                    snprintf(logstr, sizeof logstr, "Unlimit up bandwidth for host %s", hosts[i].mac);
+                    writelog(log_stream, logstr);
+
+                    unlimit_up_band(__config.iface, hosts[i].ip);
+                }
+
+                if (hosts[i].limits.b_down > 0) {
+                    snprintf(logstr, sizeof logstr, "Unlimit down bandwidth for host %s", hosts[i].mac);
+                    writelog(log_stream, logstr);
+
+                    unlimit_down_band(__config.iface, hosts[i].ip);
+                }
+            }
+
+            if (bclass_len > 0) {
+                for (i = 0; i < bclass_len; i++) {
+                    snprintf(logstr, sizeof logstr, "Unregister bandwidth class %d", bclasses[i].classid);
+                    writelog(log_stream, logstr);
+
+                    unregister_bclass(__config.iface, bclasses[i]);
+                }
+            }
+
+            writelog(log_stream, "Deinit bandwidth stack");
+            deinit_bandwidth_stack(__config.iface);
+        }
+
+
         /* Unlock and close lockfile */
         if (pid_fd != -1) {
             lockf(pid_fd, F_ULOCK, 0);
@@ -514,7 +349,6 @@ void print_help(void)
     printf("  Options:\n");
     printf("   -h --help                 Print this help\n");
     printf("   -c --conf_file filename   Read configuration from the file\n");
-/*    printf("   -t --test_conf filename   Test configuration file\n"); */
 /*    printf("   -l --log_file  filename   Write logs to the file\n");*/
     printf("   -f --foreground           Run in foreground\n");
     printf("   -p --pid_file  filename   PID file used by the daemon\n");
@@ -554,83 +388,11 @@ int read_arp(host_t *hosts, char *iface) {
     return i;
 }
 
-int update_hosts(host_t *hosts, int hosts_len, host_t *arp_cache, int arp_cache_len) {
-    int i, h, found;
-    int new_hosts_len = hosts_len;
-
-    /* Check for new hosts */
-    for (i = 0; i < arp_cache_len; i++) {
-
-        /* Check if host exists in the daemon list */
-        found = 0;
-        for (h = 0; h < new_hosts_len; h++) {
-            if (strcmp(hosts[h].mac, arp_cache[i].mac) == 0) {
-                hosts[h].staled = arp_cache[i].staled;
-                found = 1;
-                break;
-            }
-        }
-
-        if (!found) {
-            /* New host found */
-            strcpy(hosts[new_hosts_len].ip, arp_cache[i].ip);
-            strcpy(hosts[new_hosts_len].mac, arp_cache[i].mac);
-            hosts[new_hosts_len].staled = arp_cache[i].staled;
-
-            new_hosts_len++;
-        }
-    }
-
-    return new_hosts_len;
-}
-
-int dnat_host(host_t *host) {
-    int ret;
-
-    /* remove host from chains */
-    ret = iptables_man(__REMOVE_HOST, host->mac, NULL);
-
-    /* update host status */
-    if (ret == 0) {
-        host->status = 'D';
-        host->stop_time = time(0);
-    }
-
-    return ret;
-}
-
-int start_host(host_t *host) {
-    int ret = 0;
-
-    /* set host status to authorize */
-    host->status = 'A';
-    host->start_time = time(0);
-    host->stop_time = NULL;
-    host->idle = 0;
-
-    return ret;
-}
-
-
-int auth_host(char *mac, char *mode, char* nasid, char *radhost, char* radport, char *radsecret, reply_t *reply) {
-    int ret = 0;
-
-    if (strcmp(mode, "radius") == 0) {
-        ret = radclient(mac, nasid, radhost, radport, radsecret, reply);
-    }
-    else if (strcmp(mode, "rex") == 0) {
-        //TODO
-    }
-
-    return ret;
-}
-
 /* Main function */
 int main(int argc, char *argv[])
 {
     static struct option long_options[] = {
         {"conf_file", required_argument, 0, 'c'},
-        {"test_conf", required_argument, 0, 't'},
         {"status", no_argument, 0, 's'},
         {"help", no_argument, 0, 'h'},
         {"foreground", no_argument, 0, 'f'},
@@ -638,6 +400,7 @@ int main(int argc, char *argv[])
         {"authorize", required_argument, 0, 'a'},
         {NULL, 0, 0, 0}
     };
+
     int value, option_index = 0;
     int start_daemonized = 1;
 
@@ -648,13 +411,14 @@ int main(int argc, char *argv[])
     char radcmd[255];
     unsigned long traffic_in, traffic_out;
     char* pt;
-    reply_t reply;
+    time_t curtime;
+    char *dnat_reason;
 
     /* init random seed */
     srand(time(NULL));
 
     /* Try to process all command line arguments */
-    while ((value = getopt_long(argc, argv, "c:l:t:p:a:fsh", long_options, &option_index)) != -1) {
+    while ((value = getopt_long(argc, argv, "c:l:p:a:fsh", long_options, &option_index)) != -1) {
         switch (value) {
             case 'c':
                 conf_file_name = strdup(optarg);
@@ -662,8 +426,6 @@ int main(int argc, char *argv[])
             case 'p':
                 pid_file_name = strdup(optarg);
                 break;
-            case 't':
-                return test_conf_file(optarg);
             case 'a':
                 return authorize_host(optarg);
             case 's':
@@ -699,14 +461,14 @@ int main(int argc, char *argv[])
     signal(SIGUSR1, handle_signal);
 
     /* Read configuration from config file */
-    read_conf_file(0);
+    read_conf_file(&__config, 0);
 
     /* Try to open log file to this daemon */
-    if (logfile != NULL) {
-        log_stream = fopen(logfile, "a+");
+    if (__config.logfile != NULL) {
+        log_stream = fopen(__config.logfile, "a+");
         if (log_stream == NULL) {
             syslog(LOG_ERR, "Can not open log file: %s, error: %s",
-                logfile, strerror(errno));
+                __config.logfile, strerror(errno));
             log_stream = stdout;
         }
     } else {
@@ -717,14 +479,15 @@ int main(int argc, char *argv[])
     running = 1;
 
     /* get <interface> mac address for calling station */
-    snprintf(logstr, sizeof logstr, "Using interface %s", iface);
+    snprintf(logstr, sizeof logstr, "Using interface %s", __config.iface);
     writelog(log_stream, logstr);
-    get_mac(iface, called_station);
+    get_mac(__config.iface, called_station);
     uppercase(called_station);
     replacechar(called_station, ':', '-');
+    __config.called_station = strdup(called_station);
 
     /* set iptables rules */
-    snprintf(radcmd, sizeof radcmd, "/etc/wihan/setrules.sh %s %s %s", iface, iface_network_ip, wan);
+    snprintf(radcmd, sizeof radcmd, "/etc/wihan/setrules.sh %s %s %s", __config.iface, __config.iface_network_ip, __config.wan);
     ret = system(radcmd);
     if (ret != 0) {
         snprintf(logstr, sizeof logstr, "Fail to set init firewall rules");
@@ -732,7 +495,7 @@ int main(int argc, char *argv[])
     }
 
     /* Set allowed garden */
-    pt = strtok (allowed_garden, ",");
+    pt = strtok (__config.allowed_garden, ",");
     while (pt != NULL) {
         if (iptables_man(__FILTER_GLOBAL_ADD, pt, NULL) == 0 && iptables_man(__NAT_GLOBAL_ADD, pt, NULL) == 0) {
             snprintf(logstr, sizeof logstr, "Add %s to allowed garden", pt);
@@ -755,15 +518,29 @@ int main(int argc, char *argv[])
         writelog(log_stream, "Flushing traffic out");
     }
 
+    /* init bandwidth stack */
+    if (init_bandwidth_stack(__config.iface) == 0) {
+        writelog(log_stream, "Init bandwidth stack");
+    } else {
+        writelog(log_stream, "Failed to init bandwidth stack!");
+    }
+
     /* Read arp list */
-    hosts_len = read_arp(hosts, iface);
+    hosts_len = read_arp(hosts, __config.iface);
+
+    /* Start WAI */
+    if (__config.wai_port == NULL ||
+        start_wai(__config.wai_port, log_stream, &__config, hosts, hosts_len, bclasses, bclass_len) != 0)
+    {
+        writelog(log_stream, "Failed to init WAI!");
+    }
 
     /* Never ending loop of server */
     while (running == 1) {
         /* EP */
 
         /* Read arp cache */
-        arp_len = read_arp(arp_cache, iface);
+        arp_len = read_arp(arp_cache, __config.iface);
 
         /* Update hosts list */
         hosts_len = update_hosts(hosts, hosts_len, arp_cache, arp_len);
@@ -771,80 +548,53 @@ int main(int argc, char *argv[])
         /* Init mac list */
         for (i = 0; i < hosts_len; i++) {
             /* if status is not set make an auth request */
-            if ((!hosts[i].status || (hosts[i].status == 'D' && hosts[i].idle > hosts[i].idle_timeout)) && !hosts[i].staled) {
+            if (__config.macauth &&
+                ((!hosts[i].status && !hosts[i].staled) ||
+                  hosts[i].status == 'D' && hosts[i].staled == 0 && hosts[i].pstaled == 1))
+            {
                 /* send auth request for host */
                 snprintf(logstr, sizeof logstr, "Sending auth request for %s", hosts[i].mac);
                 writelog(log_stream, logstr);
 
-                retcode = auth_host(hosts[i].mac,
-                                    aaa_method,
-                                    nasidentifier,
-                                    radius_host,
-                                    radius_authport,
-                                    radius_secret,
-                                    &reply);
-
-                snprintf(logstr, sizeof logstr, "Auth request %s for %s", (retcode == 0) ? "AUTHORIZED" : "REJECTED", hosts[i].mac);
-                writelog(log_stream, logstr);
-
-                /* set host status on auth response outcome */
-                if (retcode == 0
-                        && iptables_man(__OUTGOING_ADD, hosts[i].mac, NULL) == 0
-                        && iptables_man(__TRAFFIC_IN_ADD, hosts[i].mac, NULL) == 0
-                        && iptables_man(__TRAFFIC_OUT_ADD, hosts[i].mac, NULL) == 0)
-                {
-                    if(start_host(&hosts[i]) == 0) {
-                        snprintf(logstr, sizeof logstr, "Authorize host %s", hosts[i].mac);
-                        writelog(log_stream, logstr);
-
-                        /* set host radius params */
-                        hosts[i].idle_timeout = (reply.idle > 0 ? reply.idle : __DEFAULT_IDLE);
-                        hosts[i].session_timeout = reply.session_timeout;
-                        hosts[i].b_up = reply.b_up;
-                        hosts[i].b_down = reply.b_down;
-
-                        /* execute start acct */
-                        ret = radacct_start(hosts[i].mac,
-                                            hosts[i].mac,
-                                            called_station,
-                                            hosts[i].session,
-                                            nasidentifier,
-                                            radius_host,
-                                            radius_acctport,
-                                            radius_secret);
-
-                        if (ret != 0) {
-                            snprintf(logstr, sizeof logstr, "Fail to execute radacct start for host %s", hosts[i].mac);
-                            writelog(log_stream, logstr);
-                        }
-                    }
-                } else {
-                    hosts[i].status = 'D';
-                }
+                /* Standard auth procedure */
+                auth_host(&hosts[i],
+                          hosts[i].mac,
+                          "macauth",
+                          bclasses,
+                          bclass_len,
+                          __config.iface,
+                          __config.aaa_method,
+                          __config.lma,
+                          __config.nasidentifier,
+                          __config.called_station,
+                          __config.radius_host,
+                          __config.radius_authport,
+                          __config.radius_acctport,
+                          __config.radius_secret,
+                          log_stream);
             }
 
             /* check for iptables entries for the host (MANUAL AUTH) */
             retcode = check_authorized_host(hosts[i].mac);
 
             if (!hosts[i].staled && retcode == 0 && hosts[i].status != 'A') {
-                if (start_host(&hosts[i]) == 0) {
-                    snprintf(logstr, sizeof logstr, "Authorize host %s", hosts[i].mac);
+                start_host(&hosts[i]);
+                snprintf(logstr, sizeof logstr, "Authorize host %s", hosts[i].mac);
+                writelog(log_stream, logstr);
+
+                /* execute start acct */
+                ret = radacct_start(hosts[i].username,
+                                    hosts[i].mac,
+                                    __config.called_station,
+                                    hosts[i].session,
+                                    __config.nasidentifier,
+                                    __config.radius_host,
+                                    __config.radius_acctport,
+                                    __config.radius_secret);
+
+                if (ret != 0) {
+                    snprintf(logstr, sizeof logstr, "Fail to execute radacct start for host %s", hosts[i].mac);
                     writelog(log_stream, logstr);
-
-                    /* execute start acct */
-                    ret = radacct_start(hosts[i].mac,
-                                        hosts[i].mac,
-                                        called_station,
-                                        hosts[i].session,
-                                        nasidentifier,
-                                        radius_host,
-                                        radius_acctport,
-                                        radius_secret);
-
-                    if (ret != 0) {
-                        snprintf(logstr, sizeof logstr, "Fail to execute radacct start for host %s", hosts[i].mac);
-                        writelog(log_stream, logstr);
-                    }
                 }
             }
 
@@ -882,33 +632,100 @@ int main(int argc, char *argv[])
                 hosts[i].idle++;
             }
 
-            /* Check for idle timeout */
-            if (hosts[i].status == 'A' && hosts[i].idle > hosts[i].idle_timeout) {
+            /* Check for idle timeout and session timeout */
+            curtime = time(NULL);
+            if (hosts[i].status == 'A' &&
+                (hosts[i].idle > hosts[i].limits.idle_timeout ||
+                 hosts[i].limits.session_timeout > 0 && curtime - hosts[i].start_time > hosts[i].limits.session_timeout ||
+                 hosts[i].limits.max_traffic_in > 0 && hosts[i].traffic_in > hosts[i].limits.max_traffic_in ||
+                 hosts[i].limits.max_traffic_out > 0 && hosts[i].traffic_out > hosts[i].limits.max_traffic_out ||
+                 hosts[i].limits.max_traffic > 0 && hosts[i].traffic_in + hosts[i].traffic_out > hosts[i].limits.max_traffic))
+            {
                 /* Disconnect for idle timeout */
                 if (dnat_host(&hosts[i]) == 0) {
-                    snprintf(logstr, sizeof logstr, "DNAT %s for idle timeout", hosts[i].mac);
+                    if (hosts[i].idle > hosts[i].limits.idle_timeout) {
+                        dnat_reason = "idle timeout";
+                    }
+                    else if (hosts[i].limits.max_traffic_in > 0 && hosts[i].traffic_in > hosts[i].limits.max_traffic_in) {
+                        dnat_reason = "traffic in limit reached";
+                    }
+                    else if (hosts[i].limits.max_traffic_out > 0 && hosts[i].traffic_out > hosts[i].limits.max_traffic_out) {
+                        dnat_reason = "traffic out limit reached";
+                    }
+                    else if (hosts[i].limits.max_traffic > 0 && hosts[i].traffic_in + hosts[i].traffic_out > hosts[i].limits.max_traffic) {
+                        dnat_reason = "traffic limit reached";
+                    }
+                    else {
+                        dnat_reason = "session timeout";
+                    }
+
+                    snprintf(logstr, sizeof logstr, "DNAT %s for %s", hosts[i].mac, dnat_reason);
                     writelog(log_stream, logstr);
 
                     /* execute stop acct */
-                    ret = radacct_stop(hosts[i].mac,
+                    ret = radacct_stop(hosts[i].username,
                             difftime(hosts[i].stop_time,hosts[i].start_time),
                             hosts[i].traffic_in,
                             hosts[i].traffic_out,
                             hosts[i].session,
-                            nasidentifier,
-                            radius_host,
-                            radius_acctport,
-                            radius_secret);
+                            __config.nasidentifier,
+                            __config.radius_host,
+                            __config.radius_acctport,
+                            __config.radius_secret);
 
                     if (ret != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to execute radacct stop for host %s", hosts[i].mac);
                         writelog(log_stream, logstr);
                     }
+
+                    /* Remove bandwidth limits */
+                    if (hosts[i].limits.b_up > 0 && unlimit_up_band(__config.iface, hosts[i].ip) != 0) {
+                        snprintf(logstr, sizeof logstr, "Fail to remove up bandwidth limit for host %s", hosts[i].mac);
+                        writelog(log_stream, logstr);
+                    }
+
+                    if (hosts[i].limits.b_down > 0 && unlimit_down_band(__config.iface, hosts[i].ip) != 0) {
+                        snprintf(logstr, sizeof logstr, "Fail to remove down bandwidth limit for host %s", hosts[i].mac);
+                        writelog(log_stream, logstr);
+                    }
+
+                    /* Write lma cache */
+                    if (__config.lma && hosts[i].username != NULL) {
+                        entry_t cache_entry = {0, 0, 0, 0, 0};
+
+                        if (cache_retrieve_host(hosts[i].mac, &cache_entry) == 0) {
+                            cache_entry.session_time += hosts[i].stop_time-hosts[i].start_time;
+
+                            if (cache_update_host(&cache_entry) == 0) {
+                                snprintf(logstr, sizeof logstr, "Host %s was pulled in the cache (update)", hosts[i].mac);
+                                writelog(log_stream, logstr);
+                            } else {
+                                snprintf(logstr, sizeof logstr, "Failed to pull host %s in the cache (update)", hosts[i].mac);
+                                writelog(log_stream, logstr);
+                            }
+                        } else {
+                            strcpy(cache_entry.id, hosts[i].mac);
+                            cache_entry.created_at = time(NULL);
+                            cache_entry.session_time = hosts[i].stop_time-hosts[i].start_time;
+                            cache_entry.session_timeout = hosts[i].limits.session_timeout;
+                            cache_entry.limits = hosts[i].limits;
+
+                            if (cache_persist_host(&cache_entry) == 0) {
+                                snprintf(logstr, sizeof logstr, "Host %s was pulled in the cache", hosts[i].mac);
+                                writelog(log_stream, logstr);
+                            } else {
+                                snprintf(logstr, sizeof logstr, "Failed to pull host %s in the cache", hosts[i].mac);
+                                writelog(log_stream, logstr);
+                            }
+                        }
+                    }
                 } else {
-                    snprintf(logstr, sizeof logstr, "Fail to DNAT %s for idle timeout", hosts[i].mac);
+                    snprintf(logstr, sizeof logstr, "Fail to DNAT %s for %s", hosts[i].mac, dnat_reason);
                     writelog(log_stream, logstr);
                 }
             }
+
+            hosts[i].pstaled = hosts[i].staled;
         }
 
         /* Write hosts list */
@@ -922,15 +739,15 @@ int main(int argc, char *argv[])
             for (i = 0; i < hosts_len; i++) {
                 if (hosts[i].status == 'A') {
                     /* execute interim acct */
-                    ret = radacct_interim_update(hosts[i].mac,
+                    ret = radacct_interim_update(hosts[i].username,
                             difftime(time(0), hosts[i].start_time),
                             hosts[i].traffic_in,
                             hosts[i].traffic_out,
                             hosts[i].session,
-                            nasidentifier,
-                            radius_host,
-                            radius_acctport,
-                            radius_secret);
+                            __config.nasidentifier,
+                            __config.radius_host,
+                            __config.radius_acctport,
+                            __config.radius_secret);
 
                     if (ret != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to execute radacct interim update for host %s", hosts[i].mac);
@@ -949,6 +766,10 @@ int main(int argc, char *argv[])
         sleep(__MAIN_INTERVAL);
     }
 
+
+    /* Stop WAI */
+    stop_wai();
+
     /* Close log file, when it is used. */
     if (log_stream != stdout) {
         fclose(log_stream);
@@ -958,20 +779,25 @@ int main(int argc, char *argv[])
     syslog(LOG_INFO, "Stopped %s", app_name);
     closelog();
 
+printf("exit wai\n");
     /* Free allocated memory */
     if (conf_file_name != NULL) free(conf_file_name);
     if (pid_file_name != NULL) free(pid_file_name);
-    if (iface != NULL) free(iface);
-    if (iface_network_ip != NULL) free(iface_network_ip);
-    if (wan != NULL) free(wan);
-    if (logfile != NULL) free(logfile);
-    if (allowed_garden != NULL) free(allowed_garden);
-    if (aaa_method != NULL) free(aaa_method);
-    if (radius_host != NULL) free(radius_host);
-    if (radius_authport != NULL) free(radius_authport);
-    if (radius_acctport != NULL) free(radius_acctport);
-    if (radius_secret != NULL) free(radius_secret);
-    if (nasidentifier != NULL) free(nasidentifier);
+    if (__config.iface != NULL) free(__config.iface);
+    if (__config.iface_network_ip != NULL) free(__config.iface_network_ip);
+    if (__config.called_station != NULL) free(__config.called_station);
+    if (__config.wan != NULL) free(__config.wan);
+    if (__config.logfile != NULL) free(__config.logfile);
+    if (__config.allowed_garden != NULL) free(__config.allowed_garden);
+    if (__config.aaa_method != NULL) free(__config.aaa_method);
+    if (__config.radius_host != NULL) free(__config.radius_host);
+    if (__config.radius_authport != NULL) free(__config.radius_authport);
+    if (__config.radius_acctport != NULL) free(__config.radius_acctport);
+    if (__config.radius_secret != NULL) free(__config.radius_secret);
+    if (__config.nasidentifier != NULL) free(__config.nasidentifier);
+    if (__config.wai_port != NULL) free(__config.wai_port);
+    if (__config.ssl_cert != NULL) free(__config.ssl_cert);
+    if (__config.ssl_key != NULL) free(__config.ssl_key);
 
     return EXIT_SUCCESS;
 }
