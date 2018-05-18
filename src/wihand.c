@@ -255,8 +255,8 @@ void handle_signal(int sig)
         /* Reset signal handling to default behavior */
         signal(SIGINT, SIG_DFL);
     } else if (sig == SIGHUP) {
-        writelog(log_stream, "Reloading daemon config file ...");
-        read_conf_file(1);
+        //writelog(log_stream, "Reloading daemon config file ...");
+        //read_conf_file(1);
     } else if (sig == SIGUSR1) {
     }
 }
