@@ -60,7 +60,7 @@ static void handle_login(struct mg_connection *nc,
                          char *radius_acctport,
                          char *radius_secret) {
     char src_addr[32];
-    char username[128], password[128], userurl[255];
+    char username[128], password[128], token[128], userurl[255];
     char logstr[255];
     int retcode = 0;
     host_t *host;
@@ -70,6 +70,7 @@ static void handle_login(struct mg_connection *nc,
 
     mg_get_http_var(&hm->query_string, "username", username, sizeof(username));
     mg_get_http_var(&hm->query_string, "password", password, sizeof(password));
+    mg_get_http_var(&hm->query_string, "token", token, sizeof(token));
     mg_get_http_var(&hm->query_string, "userurl", userurl, sizeof(userurl));
 
     if (get_host_by_ip(hosts, hosts_len, src_addr, &host) == 0) {
@@ -79,8 +80,8 @@ static void handle_login(struct mg_connection *nc,
             writelog(log_stream, logstr);
 
             auth_host(host,
-                      username,
-                      password,
+                      strlen(token) > 0 ? token : username,
+                      strlen(token) > 0 ? "token-pass" : password,
                       bclasses,
                       bclasses_len,
                       iface,

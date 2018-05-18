@@ -93,7 +93,7 @@ int radacct_start(char *username,
     int ret;
     char cmd[512];
     char token[20];
-    char mac[20];
+    char mac[128];
 
     /* convert username in mac format */
     strcpy(mac, username);
@@ -136,7 +136,7 @@ int radacct_stop(char *username,
         char *radsecret) {
     int ret;
     char cmd[512];
-    char mac[20];
+    char mac[128];
 
     /* convert username in mac format */
     strcpy(mac, username);
@@ -176,7 +176,7 @@ int radacct_interim_update(char *username,
                            char *radsecret) {
     int ret;
     char cmd[512];
-    char mac[20];
+    char mac[128];
 
     /* convert username in mac format */
     strcpy(mac, username);
