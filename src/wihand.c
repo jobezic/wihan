@@ -38,7 +38,6 @@
 #include "host.h"
 #include "utils.h"
 #include "radius.h"
-#include "tc.h"
 #include "lma_cache.h"
 #include "wai.h"
 
@@ -50,8 +49,7 @@ static int pid_fd = -1;
 static char *app_name = "wihand";
 static FILE *log_stream = NULL;
 host_t hosts[65535];
-int hosts_len, loopcount = 1, bclass_len = 0;
-bandclass_t bclasses[65535];
+int hosts_len, loopcount = 1;
 
 static config_t __config = {
     .iface = NULL,
@@ -209,38 +207,6 @@ void handle_signal(int sig)
         writelog(log_stream, "Stopping daemon ...");
 
         /* Unset fw rules TODO */
-
-        /* Deinit bandwidth stack */
-        if (__config.iface) {
-            for (i = 0; i < hosts_len; i++) {
-                if (hosts[i].limits.b_up > 0) {
-                    snprintf(logstr, sizeof logstr, "Unlimit up bandwidth for host %s", hosts[i].mac);
-                    writelog(log_stream, logstr);
-
-                    unlimit_up_band(__config.iface, hosts[i].ip);
-                }
-
-                if (hosts[i].limits.b_down > 0) {
-                    snprintf(logstr, sizeof logstr, "Unlimit down bandwidth for host %s", hosts[i].mac);
-                    writelog(log_stream, logstr);
-
-                    unlimit_down_band(__config.iface, hosts[i].ip);
-                }
-            }
-
-            if (bclass_len > 0) {
-                for (i = 0; i < bclass_len; i++) {
-                    snprintf(logstr, sizeof logstr, "Unregister bandwidth class %d", bclasses[i].classid);
-                    writelog(log_stream, logstr);
-
-                    unregister_bclass(__config.iface, bclasses[i]);
-                }
-            }
-
-            writelog(log_stream, "Deinit bandwidth stack");
-            deinit_bandwidth_stack(__config.iface);
-        }
-
 
         /* Unlock and close lockfile */
         if (pid_fd != -1) {
@@ -518,19 +484,12 @@ int main(int argc, char *argv[])
         writelog(log_stream, "Flushing traffic out");
     }
 
-    /* init bandwidth stack */
-    if (init_bandwidth_stack(__config.iface) == 0) {
-        writelog(log_stream, "Init bandwidth stack");
-    } else {
-        writelog(log_stream, "Failed to init bandwidth stack!");
-    }
-
     /* Read arp list */
     hosts_len = read_arp(hosts, __config.iface);
 
     /* Start WAI */
     if (__config.wai_port == NULL ||
-        start_wai(__config.wai_port, log_stream, &__config, hosts, hosts_len, bclasses, bclass_len) != 0)
+        start_wai(__config.wai_port, log_stream, &__config, hosts, hosts_len) != 0)
     {
         writelog(log_stream, "Failed to init WAI!");
     }
@@ -560,8 +519,6 @@ int main(int argc, char *argv[])
                 auth_host(&hosts[i],
                           hosts[i].mac,
                           "macauth",
-                          bclasses,
-                          bclass_len,
                           __config.iface,
                           __config.aaa_method,
                           __config.lma,
@@ -636,10 +593,7 @@ int main(int argc, char *argv[])
             curtime = time(NULL);
             if (hosts[i].status == 'A' &&
                 (hosts[i].idle > hosts[i].limits.idle_timeout ||
-                 hosts[i].limits.session_timeout > 0 && curtime - hosts[i].start_time > hosts[i].limits.session_timeout ||
-                 hosts[i].limits.max_traffic_in > 0 && hosts[i].traffic_in > hosts[i].limits.max_traffic_in ||
-                 hosts[i].limits.max_traffic_out > 0 && hosts[i].traffic_out > hosts[i].limits.max_traffic_out ||
-                 hosts[i].limits.max_traffic > 0 && hosts[i].traffic_in + hosts[i].traffic_out > hosts[i].limits.max_traffic))
+                 hosts[i].limits.session_timeout > 0 && curtime - hosts[i].start_time > hosts[i].limits.session_timeout))
             {
                 /* Disconnect for idle timeout */
                 if (dnat_host(&hosts[i]) == 0) {
@@ -675,17 +629,6 @@ int main(int argc, char *argv[])
 
                     if (ret != 0) {
                         snprintf(logstr, sizeof logstr, "Fail to execute radacct stop for host %s", hosts[i].mac);
-                        writelog(log_stream, logstr);
-                    }
-
-                    /* Remove bandwidth limits */
-                    if (hosts[i].limits.b_up > 0 && unlimit_up_band(__config.iface, hosts[i].ip) != 0) {
-                        snprintf(logstr, sizeof logstr, "Fail to remove up bandwidth limit for host %s", hosts[i].mac);
-                        writelog(log_stream, logstr);
-                    }
-
-                    if (hosts[i].limits.b_down > 0 && unlimit_down_band(__config.iface, hosts[i].ip) != 0) {
-                        snprintf(logstr, sizeof logstr, "Fail to remove down bandwidth limit for host %s", hosts[i].mac);
                         writelog(log_stream, logstr);
                     }
 

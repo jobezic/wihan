@@ -34,8 +34,6 @@ struct thread_data {
    FILE *log_stream;
    host_t *hosts;
    int hosts_len;
-   bandclass_t *bclasses;
-   int bclasses_len;
    const config_t *config;
 };
 
@@ -47,8 +45,6 @@ static void handle_login(struct mg_connection *nc,
                          struct http_message *hm,
                          host_t *hosts,
                          const int hosts_len,
-                         bandclass_t bclasses[],
-                         int bclasses_len,
                          FILE *log_stream,
                          char *iface,
                          char *aaa_method,
@@ -82,8 +78,6 @@ static void handle_login(struct mg_connection *nc,
             auth_host(host,
                       strlen(token) > 0 ? token : username,
                       strlen(token) > 0 ? "token-pass" : password,
-                      bclasses,
-                      bclasses_len,
                       iface,
                       aaa_method,
                       lma,
@@ -147,8 +141,6 @@ static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
                              hm,
                              t_data->hosts,
                              t_data->hosts_len,
-                             t_data->bclasses,
-                             t_data->bclasses_len,
                              t_data->log_stream,
                              t_data->config->iface,
                              t_data->config->aaa_method,
@@ -213,9 +205,7 @@ int start_wai(const char *port,
               FILE *log_stream,
               const config_t *config,
               host_t hosts[],
-              const int hosts_len,
-              bandclass_t bclasses[],
-              const int bclass_len) {
+              const int hosts_len) {
     pthread_t thread;
     int rc;
 
@@ -224,8 +214,6 @@ int start_wai(const char *port,
     intercom_data.log_stream = log_stream;
     intercom_data.hosts = hosts;
     intercom_data.hosts_len = hosts_len;
-    intercom_data.bclasses = bclasses;
-    intercom_data.bclasses_len = bclass_len;
     intercom_data.config = config;
 
     rc = pthread_create(&thread, NULL, WAI, (void *) &intercom_data);

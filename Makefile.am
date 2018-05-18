@@ -32,7 +32,6 @@ wihand_SOURCES = \
 	src/iptables.c \
 	src/radius.c \
 	src/utils.c \
-	src/tc.c \
 	src/wihand.c \
 	src/lma_cache.c \
 	mongoose/mongoose.c \
