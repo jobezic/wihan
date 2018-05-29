@@ -487,7 +487,7 @@ int main(int argc, char *argv[])
     __config.called_station = strdup(called_station);
 
     /* set iptables rules */
-    snprintf(radcmd, sizeof radcmd, "/etc/wihan/setrules.sh %s %s %s", __config.iface, __config.iface_network_ip, __config.wan);
+    snprintf(radcmd, sizeof radcmd, CONFDIR"/setrules.sh %s %s %s", __config.iface, __config.iface_network_ip, __config.wan);
     ret = system(radcmd);
     if (ret != 0) {
         snprintf(logstr, sizeof logstr, "Fail to set init firewall rules");
