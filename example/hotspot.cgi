@@ -5,14 +5,14 @@
 #
 # Please, make your change according to your needs:
 # 1. customize the redirect url by modifying the hotspot.geenkle.com url with yours.
-# 2. change the default listening interface (br0) with yours.
+# 2. change the default listening interface (wlan0) with yours.
 #
 
+$(touch /tmp/hhh)
 echo "Content-type: text/html"
 echo ""
-
 MAC_ADDRESS=$(cat /proc/net/arp | grep $REMOTE_ADDR | awk {'print $4'} | tr ':' '-')
-DEVICE_MAC=$(cat /sys/class/net/br0/address | tr ':' '-')
+DEVICE_MAC=$(cat /sys/class/net/wlan0/address | tr ':' '-')
 
 if [ "$QUERY_STRING" = "" ]; then
         CNS=$(echo "$HTTP_USER_AGENT" | grep -o CaptiveNetworkSupport)
@@ -39,7 +39,7 @@ if [ "$QUERY_STRING" = "" ]; then
           echo "<html>
           <head>
             <title>Redirecting</title>
-            <META http-equiv=\"refresh\" content=\"0;URL=http://hotspot.geenkle.com/hotspot/login.php?nas=$DEVICE_MAC&mac=$MAC_ADDRESS\">
+            <META http-equiv=\"refresh\" content=\"0;URL=https://hotspot.geenkle.com/hotspot/login.php?nas=$DEVICE_MAC&mac=$MAC_ADDRESS\">
           </head> <body></body></html>"
           fi
 

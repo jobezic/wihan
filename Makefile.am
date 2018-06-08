@@ -18,12 +18,11 @@
 #
 
 AUTOMAKE_OPTIONS = foreign nostdinc
-SUBDIRS = wihan_redirect
 bin_PROGRAMS = wihand
 wihand_LDADD = -lpthread
 
 if WITH_SSL
-wihand_CPPFLAGS = -DMG_ENABLE_SSL -DCONFDIR='"$(confdir)"'
+wihand_CPPFLAGS = -DMG_ENABLE_SSL -DCONFDIR='"$(confdir)"' -DWWWDIR='"$(wwwdir)"'
 wihand_LDADD += -lssl -lcrypto
 endif
 
@@ -44,4 +43,5 @@ wwwdir = $(sysconfdir)/@PACKAGE@/www
 conf_DATA = example/conf
 
 dist_conf_SCRIPTS = utils/setrules.sh
+dist_www_SCRIPTS = example/hotspot.cgi
 

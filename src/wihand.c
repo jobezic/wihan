@@ -255,8 +255,8 @@ void handle_signal(int sig)
         /* Reset signal handling to default behavior */
         signal(SIGINT, SIG_DFL);
     } else if (sig == SIGHUP) {
-        writelog(log_stream, "Reloading daemon config file ...");
-        read_conf_file(1);
+        //writelog(log_stream, "Reloading daemon config file ...");
+        //read_conf_file(1);
     } else if (sig == SIGUSR1) {
     }
 }
@@ -487,7 +487,12 @@ int main(int argc, char *argv[])
     __config.called_station = strdup(called_station);
 
     /* set iptables rules */
-    snprintf(radcmd, sizeof radcmd, CONFDIR"/setrules.sh %s %s %s", __config.iface, __config.iface_network_ip, __config.wan);
+    snprintf(radcmd, sizeof radcmd, CONFDIR"/setrules.sh %s %s %s %s",
+            __config.iface,
+            __config.iface_network_ip,
+            __config.wan,
+            __config.wai_port);
+
     ret = system(radcmd);
     if (ret != 0) {
         snprintf(logstr, sizeof logstr, "Fail to set init firewall rules");

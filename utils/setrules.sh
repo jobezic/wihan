@@ -3,7 +3,7 @@
 #
 # Usage
 #
-# setrules <listening interface> <listening interface ip> <wan interface>
+# setrules <listening interface> <listening interface ip> <wan interface> <wai_port>
 #
 
 iptables -t mangle -N wlan0_Trusted && {
@@ -26,7 +26,8 @@ iptables -t nat -A wlan0_Internet -m mark --mark 0x2 -j ACCEPT
 iptables -t nat -A wlan0_Internet -j wlan0_Unknown
 iptables -t nat -A wlan0_Unknown -j wlan0_AuthServers
 iptables -t nat -A wlan0_Unknown -j wlan0_Global
-iptables -t nat -A wlan0_Unknown -p tcp --dport 80 -j DNAT --to-destination $2:80
+iptables -t nat -A wlan0_Unknown -p tcp --dport 80 -j DNAT --to-destination $2:$(expr $4 - 1)
+iptables -t nat -A wlan0_Unknown -p tcp --dport 443 -j DNAT --to-destination $2:$4
 iptables -t filter -N wlan0_Internet
 iptables -t filter -N wlan0_AuthServers
 iptables -t filter -N wlan0_Global
