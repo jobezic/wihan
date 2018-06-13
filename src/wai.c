@@ -141,7 +141,7 @@ static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
             mg_sock_addr_to_str(&nc->sa, addr, sizeof(addr), MG_SOCK_STRINGIFY_IP);
 
             if (mg_vcmp(&hm->uri, "/test") == 0) {
-                mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Type: text/plain\r\n\r\n");
+                mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\n\r\n");
                 mg_printf(nc, "{ \"status\": \"ok\" }");
                 nc->flags |= MG_F_SEND_AND_CLOSE;
             }
