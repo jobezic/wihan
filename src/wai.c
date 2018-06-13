@@ -181,18 +181,23 @@ static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
 void *WAI(void *thread_arg) {
     struct thread_data *my_data;
     struct mg_mgr mgr;
-    struct mg_connection *nc;
+    struct mg_connection *nc, *nc_http;
     struct mg_bind_opts bind_opts;
     char logstr[255];
+    char http_port[20];
 
     my_data = (struct thread_data *) thread_arg;
+
+    snprintf(http_port, sizeof http_port, "%d", atoi(my_data->wai_port)-1);
+
     mg_mgr_init(&mgr, NULL);
     memset(&bind_opts, 0, sizeof(bind_opts));
+    bind_opts.user_data = my_data;
+    nc_http = mg_bind_opt(&mgr, http_port, ev_handler, bind_opts);
 #if HAVE_LIBSSL
     bind_opts.ssl_cert = my_data->config->ssl_cert;
     bind_opts.ssl_key = my_data->config->ssl_key;
 #endif
-    bind_opts.user_data = my_data;
     nc = mg_bind_opt(&mgr, my_data->wai_port, ev_handler, bind_opts);
     if (nc == NULL) {
         snprintf(logstr, sizeof logstr, "Error starting WAI on port %s", my_data->wai_port);
@@ -205,6 +210,7 @@ void *WAI(void *thread_arg) {
 
     // Set up HTTP server parameters
     mg_set_protocol_http_websocket(nc);
+    mg_set_protocol_http_websocket(nc_http);
     s_http_server_opts.enable_directory_listing = "no";
     s_http_server_opts.document_root = WWWDIR;
 
@@ -220,68 +226,6 @@ void *WAI(void *thread_arg) {
     pthread_exit(NULL);
 }
 
-#if HAVE_LIBSSL
-static void http_redirect_ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
-    struct http_message *hm = (struct http_message *) ev_data;
-    char addr[32];
-    struct thread_data *t_data;
-    char* res = "Location: /hotspot.cgi";
-
-    t_data = (struct thread_data *)nc->user_data;
-
-    switch (ev) {
-        case MG_EV_HTTP_REQUEST:
-            mg_sock_addr_to_str(&nc->sa, addr, sizeof(addr), MG_SOCK_STRINGIFY_IP);
-            mg_send_head(nc, 301, strlen(res), res);
-
-            break;
-
-         default:
-            break;
-    }
-}
-
-void *http_redirect_thread_process(void *thread_arg) {
-    struct thread_data *my_data;
-    struct mg_mgr mgr;
-    struct mg_connection *nc;
-    struct mg_bind_opts bind_opts;
-    char logstr[255];
-    char port[20];
-
-    my_data = (struct thread_data *) thread_arg;
-
-    snprintf(port, sizeof port, "%d", atoi(my_data->wai_port)-1);
-
-    mg_mgr_init(&mgr, NULL);
-    memset(&bind_opts, 0, sizeof(bind_opts));
-    bind_opts.user_data = my_data;
-    nc = mg_bind_opt(&mgr, port, ev_handler, bind_opts);
-    if (nc == NULL) {
-        snprintf(logstr, sizeof logstr, "Error starting http redirector on port %s", port);
-        writelog(my_data->log_stream, logstr);
-        return NULL;
-    }
-
-    snprintf(logstr, sizeof logstr, "Starting http redirector on port %s", port);
-    writelog(my_data->log_stream, logstr);
-
-    // Set up HTTP server parameters
-    mg_set_protocol_http_websocket(nc);
-
-    /* Accept requests */
-    while (my_data->loop) {
-        mg_mgr_poll(&mgr, 1000);
-    }
-
-    mg_mgr_free(&mgr);
-
-    writelog(my_data->log_stream, "Exit from http redirector main thread");
-
-    pthread_exit(NULL);
-}
-#endif
-
 int start_wai(const char *port,
               FILE *log_stream,
               const config_t *config,
@@ -290,9 +234,6 @@ int start_wai(const char *port,
               bandclass_t bclasses[],
               const int bclass_len) {
     pthread_t thread;
-#if HAVE_LIBSSL
-    pthread_t http_redirect_thread;
-#endif
     int rc;
 
     intercom_data.loop = 1;
@@ -305,9 +246,6 @@ int start_wai(const char *port,
     intercom_data.config = config;
 
     rc = pthread_create(&thread, NULL, WAI, (void *) &intercom_data);
-#if HAVE_LIBSSL
-    rc &= pthread_create(&http_redirect_thread, NULL, http_redirect_thread_process, (void *) &intercom_data);
-#endif
 
     return rc;
 }
