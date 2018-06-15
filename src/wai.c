@@ -98,7 +98,7 @@ static void handle_login(struct mg_connection *nc,
 
     }
 
-    mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Type: text/plain\r\n\r\n");
+    mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\n\r\n");
     mg_printf(nc, "{ \"status\": \"ok\" }");
     nc->flags |= MG_F_SEND_AND_CLOSE;
 }
@@ -107,7 +107,7 @@ static void handle_status(struct mg_connection *nc, struct http_message *hm, hos
     char src_addr[32];
     host_t *host;
 
-    mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Type: text/plain\r\n\r\n");
+    mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\n\r\n");
 
     mg_sock_addr_to_str(&nc->sa, src_addr, sizeof(src_addr), MG_SOCK_STRINGIFY_IP);
 
