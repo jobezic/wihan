@@ -603,7 +603,7 @@ int main(int argc, char *argv[])
                 }
             }
 
-            if (!hosts[i].staled && retcode > 0 && hosts[i].status != 'D') {
+            if (!hosts[i].staled && retcode != 0 && hosts[i].status != 'D') {
                 hosts[i].status = 'D';
             }
 
