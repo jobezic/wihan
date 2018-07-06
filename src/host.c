@@ -70,7 +70,7 @@ void write_hosts_list(host_t *hosts, int len) {
         }
 
         if (hosts[i].traffic_in == 0 && hosts[i].traffic_out == 0) {
-            fprintf(status_file, "%s\t%c\t%d\t%s\t%s\n", hosts[i].mac, hosts[i].status, hosts[i].idle, tbuff, ebuff);
+            fprintf(status_file, "%s\t%c\t%d\t%s\t%s\n\n", hosts[i].mac, hosts[i].status, hosts[i].idle, tbuff, ebuff);
         } else {
             fprintf(status_file, "%s\t%c\t%d\t%s\t%s\t\t%lu\t\t%lu\t%s\n",
                     hosts[i].mac,
