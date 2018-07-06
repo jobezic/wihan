@@ -38,10 +38,7 @@ wihand_SOURCES = \
 	src/wai.c
 
 confdir = $(sysconfdir)/@PACKAGE@
-wwwdir = $(sysconfdir)/@PACKAGE@/www
 
 conf_DATA = example/conf
 
 dist_conf_SCRIPTS = utils/setrules.sh
-dist_www_SCRIPTS = example/hotspot.cgi
-
