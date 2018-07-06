@@ -22,7 +22,7 @@ bin_PROGRAMS = wihand
 wihand_LDADD = -lpthread
 
 if WITH_SSL
-wihand_CPPFLAGS = -DMG_ENABLE_SSL -DCONFDIR='"$(confdir)"' -DWWWDIR='"$(wwwdir)"'
+wihand_CPPFLAGS = -DMG_ENABLE_SSL -DCONFDIR='"$(confdir)"'
 wihand_LDADD += -lssl -lcrypto
 endif
 

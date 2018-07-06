@@ -41,8 +41,6 @@ struct thread_data {
 
 struct thread_data intercom_data;
 
-static struct mg_serve_http_opts s_http_server_opts;
-
 static void handle_login(struct mg_connection *nc,
                          struct http_message *hm,
                          host_t *hosts,
@@ -133,6 +131,8 @@ static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
     char addr[32];
     struct thread_data *t_data;
     char* res = "Location: /hotspot.cgi";
+    char redirect_str[512];
+    host_t *host;
 
     t_data = (struct thread_data *)nc->user_data;
 
@@ -166,7 +166,19 @@ static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
                              t_data->config->radius_acctport,
                              t_data->config->radius_secret);
             } else if (has_prefix(&hm->uri, &api_prefix)) {
-                mg_serve_http(nc, (struct http_message *) ev_data, s_http_server_opts);
+                if (get_host_by_ip(t_data->hosts, t_data->hosts_len, addr, &host) == 0) {
+                    char host_mac[30];
+                    strcpy(host_mac, host->mac);
+                    replacechar(host_mac, ':', '-');
+                    snprintf(redirect_str, sizeof redirect_str, "<head><title>Redirecting</title><META http-equiv=\"refresh\" content=\"0;URL=%s?nas=%s&mac=%s\"></head><body></body></html>",
+                            t_data->config->captiveurl,
+                            t_data->config->called_station,
+                            host_mac);
+                    mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/html\r\n\r\n");
+                    mg_printf(nc, redirect_str);
+                    nc->flags |= MG_F_SEND_AND_CLOSE;
+                }
+
             } else {
                 mg_send_head(nc, 302, strlen(res), res);
             }
@@ -211,8 +223,6 @@ void *WAI(void *thread_arg) {
     // Set up HTTP server parameters
     mg_set_protocol_http_websocket(nc);
     mg_set_protocol_http_websocket(nc_http);
-    s_http_server_opts.enable_directory_listing = "no";
-    s_http_server_opts.document_root = WWWDIR;
 
     /* Accept requests */
     while (my_data->loop) {

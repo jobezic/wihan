@@ -58,6 +58,7 @@ static config_t __config = {
     .iface_network_ip = NULL,
     .wan = NULL,
     .allowed_garden = NULL,
+    .captiveurl = NULL,
     .logfile = NULL,
     .aaa_method = NULL,
     .macauth = 0,
@@ -111,6 +112,9 @@ int read_conf_file(config_t *config, int reload)
             }
             else if (strcmp(param, "allow") == 0) {
                 config->allowed_garden = strdup(val);
+            }
+            else if (strcmp(param, "captiveurl") == 0) {
+                config->captiveurl = strdup(val);
             }
             else if (strcmp(param, "log") == 0) {
                 config->logfile = strdup(val);
@@ -794,6 +798,7 @@ printf("exit wai\n");
     if (__config.wan != NULL) free(__config.wan);
     if (__config.logfile != NULL) free(__config.logfile);
     if (__config.allowed_garden != NULL) free(__config.allowed_garden);
+    if (__config.captiveurl != NULL) free(__config.captiveurl);
     if (__config.aaa_method != NULL) free(__config.aaa_method);
     if (__config.radius_host != NULL) free(__config.radius_host);
     if (__config.radius_authport != NULL) free(__config.radius_authport);
