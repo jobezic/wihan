@@ -49,9 +49,9 @@ static char *pid_file_name = NULL;
 static int pid_fd = -1;
 static char *app_name = "wihand";
 static FILE *log_stream = NULL;
-host_t hosts[65535];
+host_t hosts[1024];
 int hosts_len, loopcount = 1, bclass_len = 0;
-bandclass_t bclasses[65535];
+bandclass_t bclasses[1024];
 
 static config_t __config = {
     .iface = NULL,
