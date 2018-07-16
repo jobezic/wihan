@@ -376,6 +376,10 @@ int read_arp(host_t *hosts, char *iface) {
             sscanf(line, "%s 0x%x 0x%x %s %s %s\n", ip, &type, &flags, mac, mask, dev);
 
             if (strcmp(dev, iface) == 0) {
+                if (strcmp(mac, "00:00:00:00:00:00") == 0) {
+                    continue;
+                }
+
                 uppercase(mac);
 
                 strcpy(hosts[i].ip, ip);
