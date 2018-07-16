@@ -63,6 +63,7 @@ static void handle_login(struct mg_connection *nc,
     int retcode = 0;
     host_t *host;
     reply_t reply;
+    int ret;
 
     mg_sock_addr_to_str(&nc->sa, src_addr, sizeof(src_addr), MG_SOCK_STRINGIFY_IP);
 
@@ -71,33 +72,45 @@ static void handle_login(struct mg_connection *nc,
     mg_get_http_var(&hm->query_string, "token", token, sizeof(token));
     mg_get_http_var(&hm->query_string, "userurl", userurl, sizeof(userurl));
 
+    snprintf(logstr, sizeof logstr, "WAI /login request received from ip %s", src_addr);
+    writelog(log_stream, logstr);
+
+    mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\n\r\n");
+
     if (get_host_by_ip(hosts, hosts_len, src_addr, &host) == 0) {
         if (!host->status || host->status == 'D') {
             // Try to auth with username, password passed
             snprintf(logstr, sizeof logstr, "Sending auth request for %s", host->mac);
             writelog(log_stream, logstr);
 
-            auth_host(host,
-                      strlen(token) > 0 ? token : username,
-                      strlen(token) > 0 ? "token-pass" : password,
-                      bclasses,
-                      bclasses_len,
-                      iface,
-                      aaa_method,
-                      lma,
-                      nasidentifier,
-                      called_station,
-                      radius_host,
-                      radius_authport,
-                      radius_acctport,
-                      radius_secret,
-                      log_stream);
-        }
+            ret = auth_host(host,
+                            strlen(token) > 0 ? token : username,
+                            strlen(token) > 0 ? "token-pass" : password,
+                            bclasses,
+                            bclasses_len,
+                            iface,
+                            aaa_method,
+                            lma,
+                            nasidentifier,
+                            called_station,
+                            radius_host,
+                            radius_authport,
+                            radius_acctport,
+                            radius_secret,
+                            log_stream);
 
+            if (ret == 0) {
+               mg_printf(nc, "{ \"status\": \"ok\" }");
+            } else {
+               mg_printf(nc, "{ \"status\": \"error\" }");
+            }
+        } else {
+            mg_printf(nc, "{ \"status\": \"error\" }");
+        }
+    } else {
+        mg_printf(nc, "{ \"status\": \"error\" }");
     }
 
-    mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\n\r\n");
-    mg_printf(nc, "{ \"status\": \"ok\" }");
     nc->flags |= MG_F_SEND_AND_CLOSE;
 }
 
@@ -105,7 +118,7 @@ static void handle_status(struct mg_connection *nc, struct http_message *hm, hos
     char src_addr[32];
     host_t *host;
 
-    mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\n\r\n");
+    mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\n\r\n");
 
     mg_sock_addr_to_str(&nc->sa, src_addr, sizeof(src_addr), MG_SOCK_STRINGIFY_IP);
 
@@ -116,9 +129,11 @@ static void handle_status(struct mg_connection *nc, struct http_message *hm, hos
                     host->ip,
                     host->mac,
                     host->status);
-
-            nc->flags |= MG_F_SEND_AND_CLOSE;
+    } else {
+        mg_printf(nc, "{ \"status\": \"error\" }");
     }
+
+    nc->flags |= MG_F_SEND_AND_CLOSE;
 }
 
 static int has_prefix(const struct mg_str *uri, const struct mg_str *prefix) {
@@ -166,6 +181,8 @@ static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
                              t_data->config->radius_acctport,
                              t_data->config->radius_secret);
             } else if (has_prefix(&hm->uri, &api_prefix)) {
+                mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/html\r\n\r\n");
+
                 if (get_host_by_ip(t_data->hosts, t_data->hosts_len, addr, &host) == 0) {
                     char host_mac[30];
                     strcpy(host_mac, host->mac);
@@ -174,13 +191,19 @@ static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
                             t_data->config->captiveurl,
                             t_data->config->called_station,
                             host_mac);
-                    mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/html\r\n\r\n");
                     mg_printf(nc, redirect_str);
-                    nc->flags |= MG_F_SEND_AND_CLOSE;
+                } else {
+                    mg_printf(nc, "{ \"status\": \"error\" }");
                 }
 
+                nc->flags |= MG_F_SEND_AND_CLOSE;
+            }
+            else if (mg_vcmp(&hm->uri, "/favicon.ico") == 0) {
+                mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\n\r\n");
+                nc->flags |= MG_F_SEND_AND_CLOSE;
             } else {
                 mg_send_head(nc, 302, strlen(res), res);
+                nc->flags |= MG_F_SEND_AND_CLOSE;
             }
 
             break;
