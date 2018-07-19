@@ -33,9 +33,9 @@ struct thread_data {
    const char *wai_port;
    FILE *log_stream;
    host_t *hosts;
-   int hosts_len;
+   int *hosts_len;
    bandclass_t *bclasses;
-   int bclasses_len;
+   int *bclasses_len;
    const config_t *config;
 };
 
@@ -161,15 +161,15 @@ static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
                 nc->flags |= MG_F_SEND_AND_CLOSE;
             }
             else if (mg_vcmp(&hm->uri, "/status") == 0) {
-                handle_status(nc, hm, t_data->hosts, t_data->hosts_len);
+                handle_status(nc, hm, t_data->hosts, *t_data->hosts_len);
             }
             else if (mg_vcmp(&hm->uri, "/login") == 0) {
                 handle_login(nc,
                              hm,
                              t_data->hosts,
-                             t_data->hosts_len,
+                             *t_data->hosts_len,
                              t_data->bclasses,
-                             t_data->bclasses_len,
+                             *t_data->bclasses_len,
                              t_data->log_stream,
                              t_data->config->iface,
                              t_data->config->aaa_method,
@@ -183,7 +183,7 @@ static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
             } else if (has_prefix(&hm->uri, &api_prefix)) {
                 mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/html\r\n\r\n");
 
-                if (get_host_by_ip(t_data->hosts, t_data->hosts_len, addr, &host) == 0) {
+                if (get_host_by_ip(t_data->hosts, *t_data->hosts_len, addr, &host) == 0) {
                     char host_mac[30];
                     strcpy(host_mac, host->mac);
                     replacechar(host_mac, ':', '-');
@@ -263,9 +263,9 @@ int start_wai(const char *port,
               FILE *log_stream,
               const config_t *config,
               host_t hosts[],
-              const int hosts_len,
+              const int *hosts_len,
               bandclass_t bclasses[],
-              const int bclass_len) {
+              const int *bclass_len) {
     pthread_t thread;
     int rc;
 

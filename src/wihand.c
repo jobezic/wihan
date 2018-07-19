@@ -543,7 +543,7 @@ int main(int argc, char *argv[])
 
     /* Start WAI */
     if (__config.wai_port == NULL ||
-        start_wai(__config.wai_port, log_stream, &__config, hosts, hosts_len, bclasses, bclass_len) != 0)
+        start_wai(__config.wai_port, log_stream, &__config, hosts, &hosts_len, bclasses, &bclass_len) != 0)
     {
         writelog(log_stream, "Failed to init WAI!");
     }
