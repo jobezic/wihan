@@ -186,7 +186,7 @@ static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
                              t_data->config->radius_acctport,
                              t_data->config->radius_secret);
             } else if (has_prefix(&hm->uri, &api_prefix)) {
-                mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/html\r\n\r\n");
+                mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nCache-Control: no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nExpires: 0\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/html\r\n\r\n");
 
                 if (get_host_by_ip(t_data->hosts, *t_data->hosts_len, addr, &host) == 0) {
                     char host_mac[30];
@@ -204,7 +204,7 @@ static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
                 nc->flags |= MG_F_SEND_AND_CLOSE;
             }
             else if (mg_vcmp(&hm->uri, "/favicon.ico") == 0) {
-                mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\n\r\n");
+                mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nCache-Control: no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nExpires: 0\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\n\r\n");
                 nc->flags |= MG_F_SEND_AND_CLOSE;
             } else {
                 mg_send_head(nc, 302, strlen(res), res);
