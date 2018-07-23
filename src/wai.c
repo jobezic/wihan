@@ -27,6 +27,7 @@
 #include "utils.h"
 #include "host.h"
 #include "wihand.h"
+#include "base64.h"
 
 struct thread_data {
    int loop;
@@ -60,10 +61,9 @@ static void handle_login(struct mg_connection *nc,
     char src_addr[32];
     char username[128], password[128], token[128], userurl[255];
     char logstr[255];
-    int retcode = 0;
     host_t *host;
     reply_t reply;
-    int ret;
+    int ret = -1;
 
     mg_sock_addr_to_str(&nc->sa, src_addr, sizeof(src_addr), MG_SOCK_STRINGIFY_IP);
 
@@ -98,17 +98,22 @@ static void handle_login(struct mg_connection *nc,
                             radius_acctport,
                             radius_secret,
                             log_stream);
-
-            if (ret == 0) {
-               mg_printf(nc, "{ \"status\": \"ok\" }");
-            } else {
-               mg_printf(nc, "{ \"status\": \"error\" }");
-            }
-        } else {
-            mg_printf(nc, "{ \"status\": \"error\" }");
         }
+    }
+
+    if (strlen(userurl) > 0) {
+        char *userurl_dec;
+        char redirect_code[512];
+
+        snprintf(redirect_code, sizeof redirect_code, "Location: %s", userurl);
+        mg_send_head(nc, 301, strlen(redirect_code), redirect_code);
     } else {
-        mg_printf(nc, "{ \"status\": \"error\" }");
+        mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nCache-Control: no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nExpires: 0\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\n\r\n");
+        if (ret == 0) {
+           mg_printf(nc, "{ \"status\": \"ok\" }");
+        } else {
+           mg_printf(nc, "{ \"status\": \"error\" }");
+        }
     }
 
     nc->flags |= MG_F_SEND_AND_CLOSE;

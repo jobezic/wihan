@@ -32,6 +32,7 @@ wihand_SOURCES = \
 	src/radius.c \
 	src/utils.c \
 	src/tc.c \
+	src/base64.c \
 	src/wihand.c \
 	src/lma_cache.c \
 	mongoose/mongoose.c \
