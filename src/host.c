@@ -280,6 +280,25 @@ int auth_host(host_t *host,
     return ret;
 }
 
+int temporary_session(host_t *host) {
+    limits_t limits;
+    int ret = -1;
+
+    limits.idle_timeout = __DEFAULT_IDLE;
+    limits.session_timeout = 30; //TODO
+    limits.max_traffic_in = 0;
+    limits.max_traffic_out = 0;
+    limits.max_traffic = 0;
+
+    host->limits = limits;
+
+    if (authorize_host(host->mac) == 0) {
+        ret = 0;
+    }
+
+    return ret;
+}
+
 int iptables_man(const int action, char *mac, char *data) {
     int retcode;
 

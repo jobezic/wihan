@@ -75,9 +75,10 @@ static void handle_login(struct mg_connection *nc,
     snprintf(logstr, sizeof logstr, "WAI /login request received from ip %s", src_addr);
     writelog(log_stream, logstr);
 
-    mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\n\r\n");
-
     if (get_host_by_ip(hosts, hosts_len, src_addr, &host) == 0) {
+        // Disconnect from any temporary session
+        dnat_host(host);
+
         if (!host->status || host->status == 'D') {
             // Try to auth with username, password passed
             snprintf(logstr, sizeof logstr, "Sending auth request for %s", host->mac);
@@ -151,8 +152,9 @@ static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
     char addr[32];
     struct thread_data *t_data;
     char* res = "Location: /hotspot.cgi";
-    char redirect_str[512];
+    char redirect_str[255], tmpsession_redirect[512];
     host_t *host;
+    int ret;
 
     t_data = (struct thread_data *)nc->user_data;
 
@@ -161,12 +163,54 @@ static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
             mg_sock_addr_to_str(&nc->sa, addr, sizeof(addr), MG_SOCK_STRINGIFY_IP);
 
             if (mg_vcmp(&hm->uri, "/test") == 0) {
-                mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\n\r\n");
+                mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nCache-Control: no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nExpires: 0\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\n\r\n");
                 mg_printf(nc, "{ \"status\": \"ok\" }");
                 nc->flags |= MG_F_SEND_AND_CLOSE;
             }
             else if (mg_vcmp(&hm->uri, "/status") == 0) {
                 handle_status(nc, hm, t_data->hosts, *t_data->hosts_len);
+            }
+            else if (mg_vcmp(&hm->uri, "/tmpsession") == 0) {
+                char redirect_uri[512];
+
+                mg_get_http_var(&hm->query_string, "redirect", redirect_uri, sizeof(redirect_uri));
+
+                if (get_host_by_ip(t_data->hosts, *t_data->hosts_len, addr, &host) == 0) {
+                    char tmp_mac[30], tmp_nasid[30];
+                    strcpy(tmp_mac, host->mac);
+                    strcpy(tmp_nasid, t_data->config->nasidentifier);
+                    replacechar(tmp_mac, ':', '-');
+                    replacechar(tmp_nasid, ':', '-');
+
+                    ret = temporary_session(host);
+
+                    if (ret == 0) {
+                        char logstr[128];
+                        snprintf(logstr, sizeof logstr, "Request of temporary session for %s", host->mac);
+                        writelog(t_data->log_stream, logstr);
+                    }
+
+                    if (strlen(redirect_uri) > 0) {
+                        char *redirect_uri_dec;
+                        redirect_uri_dec = b64_decode(redirect_uri, sizeof redirect_uri);
+
+                        snprintf(tmpsession_redirect, sizeof tmpsession_redirect, "Location: %s", redirect_uri_dec);
+                        mg_send_head(nc, 301, strlen(tmpsession_redirect), tmpsession_redirect);
+
+                        if (redirect_uri_dec) {
+                            free(redirect_uri_dec);
+                        }
+                    } else {
+                        mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nCache-Control: no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nExpires: 0\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\n\r\n");
+                        if (ret == 0) {
+                            mg_printf(nc, "{ \"status\": \"ok\" }");
+                        } else {
+                            mg_printf(nc, "{ \"status\": \"error\" }");
+                        }
+                    }
+                }
+
+                nc->flags |= MG_F_SEND_AND_CLOSE;
             }
             else if (mg_vcmp(&hm->uri, "/login") == 0) {
                 handle_login(nc,
