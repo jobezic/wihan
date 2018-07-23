@@ -110,7 +110,7 @@ int remove_rule_from_chain(const char *table, const char * chain, const char* st
         fgets(pres, sizeof(pres)-1, fp);
         retcode = pclose(fp);
 
-        if (retcode == 0) {
+        if (retcode == 0 && atoi(pres) > 0) {
             /* rule found, delete it */
             snprintf(cmd, sizeof cmd, "iptables -t %s -D %s %s", table, chain, pres);
             retcode = system(cmd);
