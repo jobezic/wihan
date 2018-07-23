@@ -686,7 +686,7 @@ int main(int argc, char *argv[])
                     }
 
                     /* Write lma cache */
-                    if (__config.lma && hosts[i].username != NULL) {
+                    if (__config.lma && strlen(hosts[i].username) > 0 && check_host_limits(&hosts[i]) == 0) {
                         entry_t cache_entry = {0, 0, 0, 0, 0};
 
                         if (cache_retrieve_host(hosts[i].mac, &cache_entry) == 0) {
@@ -775,7 +775,6 @@ int main(int argc, char *argv[])
     syslog(LOG_INFO, "Stopped %s", app_name);
     closelog();
 
-printf("exit wai\n");
     /* Free allocated memory */
     if (conf_file_name != NULL) free(conf_file_name);
     if (pid_file_name != NULL) free(pid_file_name);
