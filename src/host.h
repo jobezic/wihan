@@ -78,5 +78,6 @@ void start_host(host_t *);
 int auth_host(host_t *, char *, char *, bandclass_t [], int, char *, char *, int, char *, char *, char *, char *, char *, char *, FILE *);
 int iptables_man(const int, char *, char *);
 unsigned long read_traffic_data(char *, const int);
+int check_host_limits(const host_t *);
 
 #endif

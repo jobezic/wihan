@@ -419,7 +419,6 @@ int main(int argc, char *argv[])
     char radcmd[255];
     unsigned long traffic_in, traffic_out;
     char* pt;
-    time_t curtime;
     char *dnat_reason;
 
     /* init random seed */
@@ -646,14 +645,8 @@ int main(int argc, char *argv[])
             }
 
             /* Check for idle timeout and session timeout */
-            curtime = time(NULL);
             if (hosts[i].status == 'A' &&
-                (hosts[i].idle > hosts[i].limits.idle_timeout ||
-                 hosts[i].limits.session_timeout > 0 && curtime - hosts[i].start_time > hosts[i].limits.session_timeout ||
-                 hosts[i].limits.max_traffic_in > 0 && hosts[i].traffic_in > hosts[i].limits.max_traffic_in ||
-                 hosts[i].limits.max_traffic_out > 0 && hosts[i].traffic_out > hosts[i].limits.max_traffic_out ||
-                 hosts[i].limits.max_traffic > 0 && hosts[i].traffic_in + hosts[i].traffic_out > hosts[i].limits.max_traffic))
-            {
+                (hosts[i].idle > hosts[i].limits.idle_timeout || check_host_limits(&hosts[i]))) {
                 /* Disconnect for idle timeout */
                 if (dnat_host(&hosts[i]) == 0) {
                     if (hosts[i].idle > hosts[i].limits.idle_timeout) {

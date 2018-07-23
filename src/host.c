@@ -353,3 +353,16 @@ unsigned long read_traffic_data(char *mac, const int inout) {
 
     return res;
 }
+
+int check_host_limits(const host_t *host) {
+    time_t curtime;
+    int ret;
+
+    curtime = time(NULL);
+    ret = (host->limits.session_timeout > 0 && curtime - host->start_time > host->limits.session_timeout ||
+        host->limits.max_traffic_in > 0 && host->traffic_in > host->limits.max_traffic_in ||
+        host->limits.max_traffic_out > 0 && host->traffic_out > host->limits.max_traffic_out ||
+        host->limits.max_traffic > 0 && host->traffic_in + host->traffic_out > host->limits.max_traffic);
+
+    return ret;
+}
