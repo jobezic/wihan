@@ -594,23 +594,8 @@ int main(int argc, char *argv[])
 
             if (!hosts[i].staled && retcode == 0 && hosts[i].status != 'A') {
                 start_host(&hosts[i]);
-                snprintf(logstr, sizeof logstr, "Authorize host %s", hosts[i].mac);
+                snprintf(logstr, sizeof logstr, "Manual authorize host %s", hosts[i].mac);
                 writelog(log_stream, logstr);
-
-                /* execute start acct */
-                ret = radacct_start(hosts[i].username,
-                                    hosts[i].mac,
-                                    __config.called_station,
-                                    hosts[i].session,
-                                    __config.nasidentifier,
-                                    __config.radius_host,
-                                    __config.radius_acctport,
-                                    __config.radius_secret);
-
-                if (ret != 0) {
-                    snprintf(logstr, sizeof logstr, "Fail to execute radacct start for host %s", hosts[i].mac);
-                    writelog(log_stream, logstr);
-                }
             }
 
             if (!hosts[i].staled && retcode != 0 && hosts[i].status != 'D') {
@@ -672,19 +657,21 @@ int main(int argc, char *argv[])
                     writelog(log_stream, logstr);
 
                     /* execute stop acct */
-                    ret = radacct_stop(hosts[i].username,
-                            difftime(hosts[i].stop_time,hosts[i].start_time),
-                            hosts[i].traffic_in,
-                            hosts[i].traffic_out,
-                            hosts[i].session,
-                            __config.nasidentifier,
-                            __config.radius_host,
-                            __config.radius_acctport,
-                            __config.radius_secret);
+                    if (strlen(hosts[i].session) > 0) {
+                        ret = radacct_stop(hosts[i].username,
+                                difftime(hosts[i].stop_time,hosts[i].start_time),
+                                hosts[i].traffic_in,
+                                hosts[i].traffic_out,
+                                hosts[i].session,
+                                __config.nasidentifier,
+                                __config.radius_host,
+                                __config.radius_acctport,
+                                __config.radius_secret);
 
-                    if (ret != 0) {
-                        snprintf(logstr, sizeof logstr, "Fail to execute radacct stop for host %s", hosts[i].mac);
-                        writelog(log_stream, logstr);
+                        if (ret != 0) {
+                            snprintf(logstr, sizeof logstr, "Fail to execute radacct stop for host %s", hosts[i].mac);
+                            writelog(log_stream, logstr);
+                        }
                     }
 
                     /* Remove bandwidth limits */
@@ -746,7 +733,7 @@ int main(int argc, char *argv[])
 
             /* cycle for each host */
             for (i = 0; i < hosts_len; i++) {
-                if (hosts[i].status == 'A') {
+                if (hosts[i].status == 'A' && strlen(hosts[i].session) > 0) {
                     /* execute interim acct */
                     ret = radacct_interim_update(hosts[i].username,
                             difftime(time(0), hosts[i].start_time),
