@@ -512,6 +512,9 @@ int main(int argc, char *argv[])
         if (iptables_man(__FILTER_GLOBAL_ADD, pt, NULL) == 0 && iptables_man(__NAT_GLOBAL_ADD, pt, NULL) == 0) {
             snprintf(logstr, sizeof logstr, "Add %s to allowed garden", pt);
             writelog(log_stream, logstr);
+        } else {
+            snprintf(logstr, sizeof logstr, "Failed to add %s to allowed garden", pt);
+            writelog(log_stream, logstr);
         }
 
         pt = strtok(NULL, ",");
