@@ -255,7 +255,12 @@ int auth_host(host_t *host,
                         writelog(log_stream, logstr);
                     }
                 } else {
-                    snprintf(logstr, sizeof logstr, "Error in registering new down bandwidth class %d", dbclass->classid);
+                    if (dbclass) {
+                        snprintf(logstr, sizeof logstr, "Error in registering new down bandwidth class %d", dbclass->classid);
+                    } else {
+                        snprintf(logstr, sizeof logstr, "Error in registering new down bandwidth class for %d kbps", limits.b_down);
+                    }
+
                     writelog(log_stream, logstr);
                 }
             }
