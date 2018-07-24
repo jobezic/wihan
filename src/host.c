@@ -185,11 +185,13 @@ int auth_host(host_t *host,
     char logstr[255];
     entry_t cache_entry;
     limits_t limits;
+    int lma_flag = 0;
 
     /* Try to auth the host */
     if (lma && cache_retrieve_host(host->mac, &cache_entry) == 0) {
         limits = cache_entry.limits;
         limits.session_timeout = cache_entry.session_timeout-cache_entry.session_time;
+        lma_flag = 1;
         ret = 0;
     } else {
         if (strcmp(mode, "radius") == 0) {
@@ -207,7 +209,8 @@ int auth_host(host_t *host,
         }
     }
 
-    snprintf(logstr, sizeof logstr, "Auth request %s for %s", (ret == 0) ? "AUTHORIZED" : "REJECTED", host->mac);
+    snprintf(logstr, sizeof logstr, "Auth request %s%s for %s", (ret == 0) ? "AUTHORIZED" : "REJECTED",
+            lma_flag ? " (lma)" : "", host->mac);
     writelog(log_stream, logstr);
 
     if (ret == 0) {
@@ -217,7 +220,7 @@ int auth_host(host_t *host,
                 && iptables_man(__TRAFFIC_OUT_ADD, host->mac, NULL) == 0)
         {
             start_host(host);
-            snprintf(logstr, sizeof logstr, "Authorize host %s", host->mac);
+            snprintf(logstr, sizeof logstr, "Authorize host %s%s", host->mac, lma_flag ? " (lma)" : "");
             writelog(log_stream, logstr);
 
             /* set host limits */
