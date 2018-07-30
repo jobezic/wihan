@@ -576,7 +576,7 @@ int main(int argc, char *argv[])
                           hosts[i].mac,
                           "macauth",
                           bclasses,
-                          bclass_len,
+                          &bclass_len,
                           __config.iface,
                           __config.aaa_method,
                           __config.lma,
