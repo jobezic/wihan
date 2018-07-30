@@ -107,7 +107,7 @@ static void handle_login(struct mg_connection *nc,
         char redirect_code[512];
 
         snprintf(redirect_code, sizeof redirect_code, "Location: %s", userurl);
-        mg_send_head(nc, 301, strlen(redirect_code), redirect_code);
+        mg_send_head(nc, 302, strlen(redirect_code), redirect_code);
     } else {
         mg_printf(nc, "%s", "HTTP/1.1 200 OK\r\nConnection: close\r\nCache-Control: no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nExpires: 0\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\n\r\n");
         if (ret == 0) {
@@ -195,7 +195,7 @@ static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
                         redirect_uri_dec = b64_decode(redirect_uri, sizeof redirect_uri);
 
                         snprintf(tmpsession_redirect, sizeof tmpsession_redirect, "Location: %s", redirect_uri_dec);
-                        mg_send_head(nc, 301, strlen(tmpsession_redirect), tmpsession_redirect);
+                        mg_send_head(nc, 302, strlen(tmpsession_redirect), tmpsession_redirect);
 
                         if (redirect_uri_dec) {
                             free(redirect_uri_dec);
