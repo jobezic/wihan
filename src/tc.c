@@ -57,16 +57,16 @@ int deinit_bandwidth_stack(char *dev) {
     return retcode;
 }
 
-int register_bclass(char *dev, int id, unsigned int kbps, bandclass_t *bclass) {
+int register_bclass(char *dev, int id, unsigned int bps, bandclass_t *bclass) {
     char cmd[255];
     int retcode;
 
-    snprintf(cmd, sizeof cmd, "tc class add dev %s parent 1:1 classid 1:%d htb rate %dkbit", dev, id, kbps);
+    snprintf(cmd, sizeof cmd, "tc class add dev %s parent 1:1 classid 1:%d htb rate %dbit", dev, id, bps);
     retcode = system(cmd);
 
     if (retcode == 0) {
         bclass->classid = id;
-        bclass->kbps = kbps;
+        bclass->bps = bps;
     }
 
     return retcode;
@@ -82,14 +82,14 @@ int unregister_bclass(char *dev, bandclass_t bclass) {
     return retcode;
 }
 
-int limit_up_band(char *dev, char *ip, unsigned int kbps) {
+int limit_up_band(char *dev, char *ip, unsigned int bps) {
     char cmd[255];
     int retcode;
     char addr[3];
 
     get_last_octects(ip, addr);
 
-    snprintf(cmd, sizeof cmd, "tc filter add dev %s parent ffff: protocol ip prio %s u32 match ip src %s police rate %dkbit burst 20k drop flowid :1", dev, addr, ip, kbps);
+    snprintf(cmd, sizeof cmd, "tc filter add dev %s parent ffff: protocol ip prio %s u32 match ip src %s police rate %dbit burst 20k drop flowid :1", dev, addr, ip, bps);
     retcode = system(cmd);
 
     return retcode;
@@ -144,7 +144,7 @@ int get_or_instance_bclass(bandclass_t bclasses[],
     int ret = -1;
 
     for (i = 0; i < *bclasses_len; i++) {
-        if (bclasses[i].kbps == bandwidth) {
+        if (bclasses[i].bps == bandwidth) {
             found = 1;
             *bclass = &bclasses[i];
 

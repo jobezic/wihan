@@ -232,7 +232,7 @@ int auth_host(host_t *host,
             /* Set bandwidth */
             if (limits.b_up > 0) {
                 if (limit_up_band(iface, host->ip, limits.b_up) == 0) {
-                    snprintf(logstr, sizeof logstr, "Set up bandwidth limit to %d kbps for host %s", limits.b_up, host->mac);
+                    snprintf(logstr, sizeof logstr, "Set up bandwidth limit to %d bps for host %s", limits.b_up, host->mac);
                     writelog(log_stream, logstr);
                 } else {
                     snprintf(logstr, sizeof logstr, "Error in setting up bandwidth limit for host %s", host->mac);
@@ -248,7 +248,7 @@ int auth_host(host_t *host,
                     }
 
                     if (limit_down_band(iface, host->ip, dbclass) == 0) {
-                        snprintf(logstr, sizeof logstr, "Set down bandwidth limit to %d kbps for host %s", limits.b_down, host->mac);
+                        snprintf(logstr, sizeof logstr, "Set down bandwidth limit to %d bps for host %s", limits.b_down, host->mac);
                         writelog(log_stream, logstr);
                     } else {
                         snprintf(logstr, sizeof logstr, "Error in set down bandwidth limit for host %s", host->mac);
@@ -258,7 +258,7 @@ int auth_host(host_t *host,
                     if (dbclass) {
                         snprintf(logstr, sizeof logstr, "Error in registering new down bandwidth class %d", dbclass->classid);
                     } else {
-                        snprintf(logstr, sizeof logstr, "Error in registering new down bandwidth class for %d kbps", limits.b_down);
+                        snprintf(logstr, sizeof logstr, "Error in registering new down bandwidth class for %d bps", limits.b_down);
                     }
 
                     writelog(log_stream, logstr);

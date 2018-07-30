@@ -25,7 +25,7 @@
 
 typedef struct {
     int classid;
-    unsigned int kbps;
+    unsigned int bps;
 } bandclass_t;
 
 int init_bandwidth_stack(char *);
