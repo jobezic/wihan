@@ -64,6 +64,16 @@ int check_chain_rule(const char *table, const char *chain, const char *str) {
     return retcode;
 }
 
+int check_chain_exists(const char *chain) {
+    char cmd[255];
+    int retcode;
+
+    snprintf(cmd, sizeof cmd, "iptables -n --list %s > /dev/null 2>&1", chain);
+    retcode = system(cmd);
+
+    return retcode;
+}
+
 int read_chain_bytes(const char *table, const char *chain, const char *str, char *data) {
     char cmd[255];
     char pres[64] = "";
@@ -116,6 +126,57 @@ int remove_rule_from_chain(const char *table, const char * chain, const char* st
             retcode = system(cmd);
         }
     }
+
+    return retcode;
+}
+
+int add_bandwidth_class_chain(int kbps) {
+    char cmd[255];
+    int retcode;
+    char chain[255];
+
+    snprintf(chain, sizeof chain, "wihan_bclass_%dkbps", kbps);
+
+    snprintf(cmd, sizeof cmd, "iptables -N %s", chain);
+    retcode = system(cmd);
+
+    snprintf(cmd, sizeof cmd, "iptables -A %s --match limit --limit %dkbps --limit-burst 10 -j ACCEPT",
+            chain, kbps);
+    retcode |= system(cmd);
+
+    return retcode;
+}
+
+
+/*
+ * High level functions for throttling
+ */
+
+int limit_down_bandwidth(const char *ip, int kbps) {
+    char chain[255];
+    char str[255];
+    int retcode = 0;
+
+    snprintf(chain, sizeof chain, "wihan_bclass_%dkbps", kbps);
+
+    /* check if chain exists */
+    if (check_chain_exists(chain) != 0) {
+        retcode = add_bandwidth_class_chain(kbps);
+    }
+
+    snprintf(str, sizeof str, "%s.*%s", chain, ip);
+
+    if (retcode == 0 && check_chain_rule("filter", "FORWARD", str) != 0) {
+        retcode = add_dest_rule("filter", "FORWARD", ip, chain);
+    }
+
+    return retcode;
+}
+
+int unlimit_down_bandwidth(const char *ip) {
+    int retcode;
+
+    retcode = remove_rule_from_chain("filter", "FORWARD", ip);
 
     return retcode;
 }
