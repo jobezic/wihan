@@ -50,8 +50,7 @@ static int pid_fd = -1;
 static char *app_name = "wihand";
 static FILE *log_stream = NULL;
 host_t hosts[1024];
-int hosts_len, loopcount = 1, bclass_len = 0;
-bandclass_t bclasses[1024];
+int hosts_len, loopcount = 1;
 
 static config_t __config = {
     .iface = NULL,
@@ -228,16 +227,7 @@ void handle_signal(int sig)
                     snprintf(logstr, sizeof logstr, "Unlimit down bandwidth for host %s", hosts[i].mac);
                     writelog(log_stream, logstr);
 
-                    unlimit_down_band(__config.iface, hosts[i].ip);
-                }
-            }
-
-            if (bclass_len > 0) {
-                for (i = 0; i < bclass_len; i++) {
-                    snprintf(logstr, sizeof logstr, "Unregister bandwidth class %d", bclasses[i].classid);
-                    writelog(log_stream, logstr);
-
-                    unregister_bclass(__config.iface, bclasses[i]);
+                    unlimit_down_bandwidth(hosts[i].ip);
                 }
             }
 
@@ -545,7 +535,7 @@ int main(int argc, char *argv[])
 
     /* Start WAI */
     if (__config.wai_port == NULL ||
-        start_wai(__config.wai_port, log_stream, &__config, hosts, &hosts_len, bclasses, &bclass_len) != 0)
+        start_wai(__config.wai_port, log_stream, &__config, hosts, &hosts_len) != 0)
     {
         writelog(log_stream, "Failed to init WAI!");
     }
@@ -575,8 +565,6 @@ int main(int argc, char *argv[])
                 auth_host(&hosts[i],
                           hosts[i].mac,
                           "macauth",
-                          bclasses,
-                          &bclass_len,
                           __config.iface,
                           __config.aaa_method,
                           __config.lma,
@@ -683,7 +671,7 @@ int main(int argc, char *argv[])
                         writelog(log_stream, logstr);
                     }
 
-                    if (hosts[i].limits.b_down > 0 && unlimit_down_band(__config.iface, hosts[i].ip) == 0) {
+                    if (hosts[i].limits.b_down > 0 && unlimit_down_bandwidth(hosts[i].ip) == 0) {
                         snprintf(logstr, sizeof logstr, "Remove down bandwidth limit for host %s", hosts[i].mac);
                         writelog(log_stream, logstr);
                     } else {

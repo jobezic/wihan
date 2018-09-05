@@ -165,8 +165,6 @@ void start_host(host_t *host) {
 int auth_host(host_t *host,
               char *username,
               char *pass,
-              bandclass_t bclasses[],
-              int *bclass_len,
               char *iface,
               char *mode,
               int lma,
@@ -180,8 +178,6 @@ int auth_host(host_t *host,
 {
     int ret = 0;
     reply_t reply = {0, 0, 0, 0, 0, 0, 0};
-    bandclass_t *dbclass;
-    int registered = 0;
     char logstr[255];
     entry_t cache_entry;
     limits_t limits;
@@ -241,28 +237,14 @@ int auth_host(host_t *host,
             }
 
             if (limits.b_down > 0) {
-                if (get_or_instance_bclass(bclasses, bclass_len, limits.b_down, iface, &dbclass, &registered) == 0) {
-                    if (registered == 1) {
-                        snprintf(logstr, sizeof logstr, "Register new down bandwidth class %d", dbclass->classid);
-                        writelog(log_stream, logstr);
-                    }
-
-                    if (limit_down_band(iface, host->ip, dbclass) == 0) {
-                        snprintf(logstr, sizeof logstr, "Set down bandwidth limit to %d bps for host %s", limits.b_down, host->mac);
-                        writelog(log_stream, logstr);
-                    } else {
-                        snprintf(logstr, sizeof logstr, "Error in set down bandwidth limit for host %s", host->mac);
-                        writelog(log_stream, logstr);
-                    }
+                if (limit_down_bandwidth(host->ip, limits.b_down) == 0) {
+                    snprintf(logstr, sizeof logstr, "Set down bandwidth limit to %d bps for host %s", limits.b_down, host->mac);
+                    writelog(log_stream, logstr);
                 } else {
-                    if (dbclass) {
-                        snprintf(logstr, sizeof logstr, "Error in registering new down bandwidth class %d", dbclass->classid);
-                    } else {
-                        snprintf(logstr, sizeof logstr, "Error in registering new down bandwidth class for %d bps", limits.b_down);
-                    }
-
+                    snprintf(logstr, sizeof logstr, "Error in set down bandwidth limit for host %s", host->mac);
                     writelog(log_stream, logstr);
                 }
+
             }
 
             /* execute start acct */
