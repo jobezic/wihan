@@ -59,7 +59,7 @@ The result is placed in ```<some dir>``` You have to install the content of ```<
 
 You can find a sample configuration file in example. Edit the configuration file according to your needs and copy it to /etc/wihan.
 
->In order to redirect your clients to your captive portal you have to setup the hotspot.cgi script and start wihan_captive. To setup
+>In order to redirect your clients to your captive portal you have to setup the hotspot.cgi script. To setup
 >your hotspot.cgi script read it and make your changes as described inside the cgi script.
 
 #### Usage
@@ -69,10 +69,6 @@ Start wihan with:
 ```
 wihand -c /etc/wihan/conf
 ```
-
->In order to redirect your clients to the captive portal you have to start Wihan Captive with:
->wihand_captive
-
 
 It goes in background listening for new connections to the listening interface.
 

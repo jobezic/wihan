@@ -55,5 +55,4 @@ AC_ARG_WITH([ssl],
 
 AC_SEARCH_LIBS([pthread_mutex_lock], [pthread])
 
-AC_CONFIG_SUBDIRS([wihan_captive])
 AC_OUTPUT

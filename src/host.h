@@ -75,7 +75,9 @@ int update_hosts(host_t *, int, host_t *, int);
 int dnat_host(host_t *);
 void start_host(host_t *);
 int auth_host(host_t *, char *, char *, char *, char *, int, char *, char *, char *, char *, char *, char *, FILE *);
+int temporary_session(host_t *host);
 int iptables_man(const int, char *, char *);
 unsigned long read_traffic_data(char *, const int);
+int check_host_limits(const host_t *);
 
 #endif

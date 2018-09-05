@@ -32,6 +32,7 @@ typedef struct {
     char *called_station;
     char *wan;
     char *allowed_garden;
+    char *captiveurl;
     char *logfile;
     char *aaa_method;
     int macauth;

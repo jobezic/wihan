@@ -70,7 +70,7 @@ void write_hosts_list(host_t *hosts, int len) {
         }
 
         if (hosts[i].traffic_in == 0 && hosts[i].traffic_out == 0) {
-            fprintf(status_file, "%s\t%c\t%d\t%s\t%s\n", hosts[i].mac, hosts[i].status, hosts[i].idle, tbuff, ebuff);
+            fprintf(status_file, "%s\t%c\t%d\t%s\t%s\n\n", hosts[i].mac, hosts[i].status, hosts[i].idle, tbuff, ebuff);
         } else {
             fprintf(status_file, "%s\t%c\t%d\t%s\t%s\t\t%lu\t\t%lu\t%s\n",
                     hosts[i].mac,
@@ -178,15 +178,16 @@ int auth_host(host_t *host,
 {
     int ret = 0;
     reply_t reply = {0, 0, 0, 0, 0, 0, 0};
-    int registered = 0;
     char logstr[255];
     entry_t cache_entry;
     limits_t limits;
+    int lma_flag = 0;
 
     /* Try to auth the host */
     if (lma && cache_retrieve_host(host->mac, &cache_entry) == 0) {
         limits = cache_entry.limits;
         limits.session_timeout = cache_entry.session_timeout-cache_entry.session_time;
+        lma_flag = 1;
         ret = 0;
     } else {
         if (strcmp(mode, "radius") == 0) {
@@ -204,7 +205,8 @@ int auth_host(host_t *host,
         }
     }
 
-    snprintf(logstr, sizeof logstr, "Auth request %s for %s", (ret == 0) ? "AUTHORIZED" : "REJECTED", host->mac);
+    snprintf(logstr, sizeof logstr, "Auth request %s%s for %s", (ret == 0) ? "AUTHORIZED" : "REJECTED",
+            lma_flag ? " (lma)" : "", host->mac);
     writelog(log_stream, logstr);
 
     if (ret == 0) {
@@ -214,7 +216,7 @@ int auth_host(host_t *host,
                 && iptables_man(__TRAFFIC_OUT_ADD, host->mac, NULL) == 0)
         {
             start_host(host);
-            snprintf(logstr, sizeof logstr, "Authorize host %s", host->mac);
+            snprintf(logstr, sizeof logstr, "Authorize host %s%s", host->mac, lma_flag ? " (lma)" : "");
             writelog(log_stream, logstr);
 
             /* set host limits */
@@ -222,6 +224,28 @@ int auth_host(host_t *host,
 
             /* set auth username into host */
             strcpy(host->username, username);
+
+            /* Set bandwidth */
+            if (limits.b_up > 0) {
+                if (limit_up_band(iface, host->ip, limits.b_up) == 0) {
+                    snprintf(logstr, sizeof logstr, "Set up bandwidth limit to %d bps for host %s", limits.b_up, host->mac);
+                    writelog(log_stream, logstr);
+                } else {
+                    snprintf(logstr, sizeof logstr, "Error in setting up bandwidth limit for host %s", host->mac);
+                    writelog(log_stream, logstr);
+                }
+            }
+
+            if (limits.b_down > 0) {
+                if (limit_down_bandwidth(host->ip, limits.b_down) == 0) {
+                    snprintf(logstr, sizeof logstr, "Set down bandwidth limit to %d bps for host %s", limits.b_down, host->mac);
+                    writelog(log_stream, logstr);
+                } else {
+                    snprintf(logstr, sizeof logstr, "Error in set down bandwidth limit for host %s", host->mac);
+                    writelog(log_stream, logstr);
+                }
+
+            }
 
             /* execute start acct */
             ret = radacct_start(username,
@@ -241,6 +265,25 @@ int auth_host(host_t *host,
             host->status = 'D';
         }
 
+    }
+
+    return ret;
+}
+
+int temporary_session(host_t *host) {
+    limits_t limits;
+    int ret = -1;
+
+    limits.idle_timeout = __DEFAULT_IDLE;
+    limits.session_timeout = 30; //TODO
+    limits.max_traffic_in = 0;
+    limits.max_traffic_out = 0;
+    limits.max_traffic = 0;
+
+    host->limits = limits;
+
+    if (authorize_host(host->mac) == 0) {
+        ret = 0;
     }
 
     return ret;
@@ -318,4 +361,17 @@ unsigned long read_traffic_data(char *mac, const int inout) {
     }
 
     return res;
+}
+
+int check_host_limits(const host_t *host) {
+    time_t curtime;
+    int ret;
+
+    curtime = time(NULL);
+    ret = (host->limits.session_timeout > 0 && curtime - host->start_time > host->limits.session_timeout ||
+        host->limits.max_traffic_in > 0 && host->traffic_in > host->limits.max_traffic_in ||
+        host->limits.max_traffic_out > 0 && host->traffic_out > host->limits.max_traffic_out ||
+        host->limits.max_traffic > 0 && host->traffic_in + host->traffic_out > host->limits.max_traffic);
+
+    return ret;
 }

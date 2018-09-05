@@ -18,6 +18,11 @@ net 192.168.4.1
 wan wan1
 
 #
+# Captive Portal Url
+#
+captiveurl https://hotspot.geenkle.com/captive/#/
+
+#
 # NAS Identificator
 #
 nasidentifier AABBCCDDEEFF
