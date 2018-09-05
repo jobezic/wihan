@@ -38,6 +38,7 @@
 #include "host.h"
 #include "utils.h"
 #include "radius.h"
+#include "tc.h"
 #include "lma_cache.h"
 #include "wai.h"
 
@@ -520,6 +521,13 @@ int main(int argc, char *argv[])
 
     if (iptables_man(__TRAFFIC_OUT_FLUSH, NULL, NULL) == 0) {
         writelog(log_stream, "Flushing traffic out");
+    }
+
+    /* init bandwidth stack */
+    if (init_bandwidth_stack(__config.iface) == 0) {
+        writelog(log_stream, "Init bandwidth stack");
+    } else {
+        writelog(log_stream, "Failed to init bandwidth stack!");
     }
 
     /* Read arp list */

@@ -25,6 +25,7 @@
 
 #include <time.h>
 #include "radius.h"
+#include "tc.h"
 
 #define __DEFAULT_IDLE  60
 #define __OUTGOING_FLUSH 100
