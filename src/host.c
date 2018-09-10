@@ -237,7 +237,7 @@ int auth_host(host_t *host,
             }
 
             if (limits.b_down > 0) {
-                if (limit_down_bandwidth(host->ip, limits.b_down) == 0) {
+                if (limit_down_bandwidth(host->ip, limits.b_down/1000) == 0) {
                     snprintf(logstr, sizeof logstr, "Set down bandwidth limit to %d bps for host %s", limits.b_down, host->mac);
                     writelog(log_stream, logstr);
                 } else {
