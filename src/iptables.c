@@ -28,7 +28,7 @@ int flush_chain(const char *table, const char *chain) {
     char cmd[255];
     int retcode;
 
-    snprintf(cmd, sizeof cmd, "iptables -t %s -F %s", table, chain);
+    snprintf(cmd, sizeof cmd, "iptables -w 2 -t %s -F %s", table, chain);
     retcode = system(cmd);
 
     return retcode;
@@ -38,7 +38,7 @@ int add_mac_rule_to_chain(const char *table, const char *chain, const char *mac,
     char cmd[255];
     int retcode;
 
-    snprintf(cmd, sizeof cmd, "iptables -t %s -A %s -m mac --mac-source \"%s\" -j %s", table, chain, mac, policy);
+    snprintf(cmd, sizeof cmd, "iptables -w 2 -t %s -A %s -m mac --mac-source \"%s\" -j %s", table, chain, mac, policy);
     retcode = system(cmd);
 
     return retcode;
@@ -48,7 +48,7 @@ int add_dest_rule(const char* table, const char * chain, const char *dest, const
     char cmd[255];
     int retcode;
 
-    snprintf(cmd, sizeof cmd, "iptables -t %s -A %s -d %s -j %s", table, chain, dest, policy);
+    snprintf(cmd, sizeof cmd, "iptables -w 2 -t %s -A %s -d %s -j %s", table, chain, dest, policy);
     retcode = system(cmd);
 
     return retcode;
@@ -58,7 +58,7 @@ int check_chain_rule(const char *table, const char *chain, const char *str) {
     char cmd[255];
     int retcode;
 
-    snprintf(cmd, sizeof cmd, "iptables -t %s -nvL %s | grep %s > /dev/null 2>&1", table, chain, str);
+    snprintf(cmd, sizeof cmd, "iptables -w 2 -t %s -nvL %s | grep %s > /dev/null 2>&1", table, chain, str);
     retcode = system(cmd);
 
     return retcode;
@@ -68,7 +68,7 @@ int check_chain_exists(const char *chain) {
     char cmd[255];
     int retcode;
 
-    snprintf(cmd, sizeof cmd, "iptables -n --list %s > /dev/null 2>&1", chain);
+    snprintf(cmd, sizeof cmd, "iptables -w 2 -n --list %s > /dev/null 2>&1", chain);
     retcode = system(cmd);
 
     return retcode;
@@ -82,7 +82,7 @@ int read_chain_bytes(const char *table, const char *chain, const char *str, char
 
     /* retrieve the chain bytes */
     snprintf(cmd,
-            sizeof cmd, "iptables -t %s -nxvL %s | grep %s | awk '{ print $2 }' 2> /dev/null",
+            sizeof cmd, "iptables -w 2 -t %s -nxvL %s | grep %s | awk '{ print $2 }' 2> /dev/null",
             table,
             chain,
             str);
@@ -109,7 +109,7 @@ int remove_rule_from_chain(const char *table, const char * chain, const char* st
 
     /* search the rule to delete */
     snprintf(cmd,
-            sizeof cmd, "iptables -t %s -nvL %s --line-numbers | grep %s | tail -n 1 | awk '{ print $1 }'",
+            sizeof cmd, "iptables -w 2 -t %s -nvL %s --line-numbers | grep %s | tail -n 1 | awk '{ print $1 }'",
             table,
             chain,
             str);
@@ -122,7 +122,7 @@ int remove_rule_from_chain(const char *table, const char * chain, const char* st
 
         if (retcode == 0 && atoi(pres) > 0) {
             /* rule found, delete it */
-            snprintf(cmd, sizeof cmd, "iptables -t %s -D %s %s", table, chain, pres);
+            snprintf(cmd, sizeof cmd, "iptables -w 2 -t %s -D %s %s", table, chain, pres);
             retcode = system(cmd);
         }
     }
@@ -137,14 +137,14 @@ int add_bandwidth_class_chain(int kbps) {
 
     snprintf(chain, sizeof chain, "wihan_bclass_%dkbps", kbps);
 
-    snprintf(cmd, sizeof cmd, "iptables -N %s", chain);
+    snprintf(cmd, sizeof cmd, "iptables -w 2 -N %s", chain);
     retcode = system(cmd);
 
-    snprintf(cmd, sizeof cmd, "iptables -A %s --match limit --limit %d/sec --limit-burst 10 -j ACCEPT",
+    snprintf(cmd, sizeof cmd, "iptables -w 2 -A %s --match limit --limit %d/sec --limit-burst 10 -j ACCEPT",
             chain, kbps/10);
     retcode |= system(cmd);
 
-    snprintf(cmd, sizeof cmd, "iptables -A %s -j DROP", chain);
+    snprintf(cmd, sizeof cmd, "iptables -w 2 -A %s -j DROP", chain);
     retcode |= system(cmd);
 
     return retcode;
