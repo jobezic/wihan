@@ -140,7 +140,7 @@ int add_bandwidth_class_chain(int kbps) {
     snprintf(cmd, sizeof cmd, "iptables -w 2 -N %s", chain);
     retcode = system(cmd);
 
-    snprintf(cmd, sizeof cmd, "iptables -w 2 -A %s --match limit --limit %d/sec --limit-burst 10 -j ACCEPT",
+    snprintf(cmd, sizeof cmd, "iptables -w 2 -A %s --match hashlimit --hashlimit-mode srcip --hashlimit-name dband_limit --hashlimit-upto %d/sec --hashlimit-burst 10 -j ACCEPT",
             chain, kbps/10);
     retcode |= system(cmd);
 
