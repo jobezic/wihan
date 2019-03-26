@@ -7,7 +7,7 @@ Wihan is a daemon to provide WiFi access and control and hotspot capabilities. I
 #### Prerequisites
 
 You need to have the following dependencies on your target system:
-
+k
 - iptables (http://www.netfilter.org/)
 - freeradius-utils (https://freeradius.org/releases/)
 - iproute2 (https://github.com/shemminger/iproute2)
@@ -21,10 +21,10 @@ You need to have the following dependencies on your target system:
 For first you have to clone the project from the github repository:
 
 ```git
-git clone https://github.com/Geenkle/wihan.git
+git clone https://github.com/pinkra/wihan.git
 ```
 
-> You can also download the latest release from github (https://github.com/Geenkle/wihan/releases).
+> You can also download the latest release from github (https://github.com/pinkra/wihan/releases).
 
 #### Compile And Deploy
 
